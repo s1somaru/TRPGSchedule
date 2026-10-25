@@ -1,8 +1,33 @@
+// 画面の入口。URL のパスで、どの画面を出すかを決める(spec.md 6.2)
 import { render } from "preact";
+import { useEffect } from "preact/hooks";
+import { ID_PATTERNS } from "../shared/ids";
+import { ComingSoon } from "./pages/ComingSoon";
+import { MyCalendar } from "./pages/MyCalendar";
+import { Top } from "./pages/Top";
+import { navigate, usePath } from "./router";
+import "./styles.css";
 
-// 画面は手順4で作る。いまは仮の表示だけ
 function App() {
-  return <p>準備中です</p>;
+  const path = usePath();
+
+  const calendar = /^\/c\/([^/]+)$/.exec(path)?.[1];
+  const session = /^\/s\/([^/]+)$/.exec(path)?.[1];
+  const known =
+    path === "/" ||
+    path === "/new" ||
+    (calendar !== undefined && ID_PATTERNS.calendar.test(calendar)) ||
+    (session !== undefined && ID_PATTERNS.session.test(session));
+
+  // 知らないパスはトップに戻す
+  useEffect(() => {
+    if (!known) navigate("/", { replace: true });
+  }, [known]);
+
+  if (path === "/new") return <ComingSoon title="卓を作る" />;
+  if (calendar && known) return <MyCalendar key={calendar} id={calendar} />;
+  if (session && known) return <ComingSoon title="卓のページ" />;
+  return <Top key={path} />;
 }
 
 const root = document.getElementById("app");

@@ -2,18 +2,11 @@
 import * as v from "valibot";
 import { isValidDate } from "./dates";
 import { ID_PATTERNS } from "./ids";
+import { LIMITS, ShareTokenTtl } from "./limits";
 import { cleanMultiLine, cleanSingleLine } from "./text";
 
-export const LIMITS = {
-  displayName: 20,
-  memo: 100,
-  title: 50,
-  candidateDates: 60,
-  participants: 30,
-  availabilityPerRequest: 200,
-} as const;
+export { LIMITS, ShareTokenTtl };
 
-export const ShareTokenTtl = { default: 86400, min: 60, max: 86400 } as const;
 
 /** 日付("YYYY-MM-DD" で実在する日) */
 export const DateString = v.pipe(
