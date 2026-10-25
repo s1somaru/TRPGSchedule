@@ -629,3 +629,357 @@ a:focus-visible {
 .center {
   text-align: center;
 }
+
+/* ---- 候補日の選び方 ---- */
+.step-title {
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.chip {
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.wd-chip {
+  min-width: 40px;
+  padding: 6px 0;
+}
+
+.wd-chip.sun:not([aria-pressed="true"]) {
+  color: var(--sun);
+}
+
+.wd-chip.sat:not([aria-pressed="true"]) {
+  color: var(--sat);
+}
+
+.pick-count {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.day.pick.picked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.day.pick.picked .num {
+  color: var(--accent-text);
+}
+
+.day.pick.pick-start {
+  outline: 3px dashed var(--accent);
+  outline-offset: 1px;
+}
+
+.day .check-mark {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+/* 自分の予定を薄く重ねる */
+.day .mine {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.day .mine.s-o {
+  color: var(--o);
+}
+.day .mine.s-t {
+  color: var(--t);
+}
+.day .mine.s-x {
+  color: var(--x);
+}
+
+.day.pick.picked .mine {
+  color: var(--accent-text);
+}
+
+fieldset.card {
+  margin: 0;
+}
+
+fieldset.card .check + .check {
+  margin-top: 8px;
+}
+
+/* 送信ボタンを画面下に固定する */
+.submit-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--bg) 30%);
+}
+
+/* ---- 卓ページ ---- */
+.confirmed-banner {
+  margin: 8px 0 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--o-bg);
+  border: 2px solid var(--o);
+  font-size: 1.15rem;
+  text-align: center;
+}
+
+.confirmed-banner strong {
+  font-size: 1.3rem;
+}
+
+.confirmed-banner.archived {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+/* 表は横にはみ出したら、表の中だけ横にスクロールする */
+.table-wrap {
+  margin: 16px 0 8px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+table.sched {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+.sched th,
+.sched td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+  text-align: center;
+  min-width: 52px;
+}
+
+.sched thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: bottom;
+  max-width: 72px;
+}
+
+.sched .pname {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 72px;
+}
+
+.gm-mark {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0 5px;
+}
+
+.sched th.deleted,
+.deleted {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* 日付の列は、横にスクロールしても左に残す */
+.sched .col-date {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  text-align: left;
+  min-width: 96px;
+  z-index: 1;
+}
+
+.date-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 40px;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  text-align: left;
+}
+
+.date-btn .sun {
+  color: var(--sun);
+}
+
+.date-btn .sat {
+  color: var(--sat);
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 999px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.badge-ok {
+  background: var(--o);
+  color: var(--surface);
+}
+
+.badge-confirmed {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.sched td {
+  font-size: 1.15rem;
+  font-weight: 700;
+  position: relative;
+}
+
+.sched td.c-o,
+.day-sym.c-o {
+  color: var(--o);
+}
+.sched td.c-t,
+.day-sym.c-t {
+  color: var(--t);
+}
+.sched td.c-x,
+.day-sym.c-x {
+  color: var(--x);
+}
+
+.memo-mark {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.sched .col-sum {
+  border-right: 1px solid var(--line);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 64px;
+}
+
+.sum-o {
+  color: var(--o);
+}
+
+.sum-t {
+  color: var(--t);
+}
+
+/* GMの誰かが × の日は、行ごと薄くする */
+.sched tr.row-ng td,
+.sched tr.row-ng .date-btn {
+  opacity: 0.35;
+}
+
+.sched tr.row-past {
+  background: var(--x-bg);
+}
+
+.sched tr.row-past td,
+.sched tr.row-past .date-btn {
+  opacity: 0.5;
+}
+
+.sched tr.row-confirmed th,
+.sched tr.row-confirmed td {
+  background: var(--o-bg);
+}
+
+.actions {
+  margin-top: 16px;
+}
+
+.sub-title {
+  font-size: 1rem;
+  margin: 20px 0 8px;
+}
+
+.member-row {
+  flex-wrap: wrap;
+}
+
+.member-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-small {
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.day-row {
+  align-items: flex-start !important;
+}
+
+.day-memo {
+  display: block;
+  margin-top: 2px;
+}
+
+.day-sym {
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex: none;
+  min-width: 32px;
+  text-align: center;
+}
+
+section > .btn-block + .btn-block,
+section > .list + .muted + .btn-block {
+  margin-top: 12px;
+}

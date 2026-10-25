@@ -5,6 +5,9 @@ import type {
   CalendarResponse,
   DayEntry,
   MySessionsResponse,
+  ParticipantResponse,
+  Role,
+  SessionResponse,
 } from "../shared/types";
 
 /** API がエラーを返したとき */
@@ -86,6 +89,39 @@ export const api = {
 
   mySessions: (id: string, secret: string) =>
     request<MySessionsResponse>("GET", `/calendars/${id}/sessions`, { secret }),
+
+  // ---- 卓 ----
+
+  createSession: (secret: string, body: { title: string; candidateDates: string[] }) =>
+    request<SessionResponse>("POST", "/sessions", { secret, body }),
+
+  /** 秘密は任意。参加者の秘密なら me が入る */
+  getSession: (id: string, secret?: string) =>
+    request<SessionResponse>("GET", `/sessions/${id}`, { secret }),
+
+  patchSession: (
+    id: string,
+    secret: string,
+    body: { title?: string; candidateDates?: string[]; confirmedDate?: string | null },
+  ) => request<SessionResponse>("PATCH", `/sessions/${id}`, { secret, body }),
+
+  deleteSession: (id: string, secret: string) => request<void>("DELETE", `/sessions/${id}`, { secret }),
+
+  join: (id: string, secret: string, displayName?: string) =>
+    request<{ id: string; role: Role }>("POST", `/sessions/${id}/participants`, {
+      secret,
+      body: displayName ? { displayName } : {},
+    }),
+
+  patchParticipant: (
+    id: string,
+    pid: string,
+    secret: string,
+    body: { role?: Role; displayName?: string | null },
+  ) => request<ParticipantResponse>("PATCH", `/sessions/${id}/participants/${pid}`, { secret, body }),
+
+  removeParticipant: (id: string, pid: string, secret: string) =>
+    request<void>("DELETE", `/sessions/${id}/participants/${pid}`, { secret }),
 };
 
 export type { Availability };

@@ -2,8 +2,9 @@
 import { render } from "preact";
 import { useEffect } from "preact/hooks";
 import { ID_PATTERNS } from "../shared/ids";
-import { ComingSoon } from "./pages/ComingSoon";
+import { NewSession } from "./pages/NewSession";
 import { MyCalendar } from "./pages/MyCalendar";
+import { SessionPage } from "./pages/SessionPage";
 import { Top } from "./pages/Top";
 import { navigate, usePath } from "./router";
 import "./styles.css";
@@ -24,9 +25,9 @@ function App() {
     if (!known) navigate("/", { replace: true });
   }, [known]);
 
-  if (path === "/new") return <ComingSoon title="卓を作る" />;
+  if (path === "/new") return <NewSession />;
   if (calendar && known) return <MyCalendar key={calendar} id={calendar} />;
-  if (session && known) return <ComingSoon title="卓のページ" />;
+  if (session && known) return <SessionPage key={session} id={session} />;
   return <Top key={path} />;
 }
 
