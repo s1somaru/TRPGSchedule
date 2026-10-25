@@ -4,11 +4,11 @@ import { FEEDBACK_LIMITS } from "../../shared/limits";
 import { api, ApiClientError, pageKind } from "../api";
 import { graphemeLength } from "../format";
 import { Link } from "../router";
+import { RATED_KEY } from "../storage";
 import { APP_NAME } from "./Header";
 import { LogoMark } from "./Icons";
 
 export const REPO_URL = "https://github.com/s1somaru/takuyose";
-const RATED_KEY = "takuyose:rated";
 
 export function Footer(props: { path: string }) {
   // 自分のカレンダーでは、画面下の入力ペンに隠れないよう余白を足す

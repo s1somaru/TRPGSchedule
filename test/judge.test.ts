@@ -13,7 +13,6 @@ function person(role: "GM" | "PL", s?: Status, deleted = false): ParticipantView
     displayName: `${role}${n}`,
     calendarDeleted: deleted,
     availability: s && !deleted ? { [D]: { s } } : {},
-    lastUpdatedAt: null,
   };
 }
 

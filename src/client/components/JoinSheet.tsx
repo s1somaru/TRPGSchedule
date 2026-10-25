@@ -2,9 +2,9 @@
 // - この端末にカレンダーがあれば、それで参加(1回押すだけ)
 // - なければ「カレンダーを作って参加」か「ほかの端末のカレンダーを使う(編集URLを貼る)」
 import { useState } from "preact/hooks";
-import { ID_PATTERNS } from "../../shared/ids";
 import { LIMITS } from "../../shared/limits";
 import { api, ApiClientError } from "../api";
+import { parseEditUrl } from "../logic";
 import { graphemeLength } from "../format";
 import { editUrl, storage, type StoredCalendar } from "../storage";
 import { SaveUrl } from "./SaveUrl";
@@ -15,19 +15,6 @@ type Mode =
   | { kind: "create" }
   | { kind: "save"; cal: StoredCalendar }
   | { kind: "paste" };
-
-/** 貼り付けられた編集URLから、カレンダーIDと秘密を取り出す */
-export function parseEditUrl(text: string): { id: string; secret: string } | null {
-  try {
-    const url = new URL(text.trim());
-    const id = /^\/c\/([^/]+)$/.exec(url.pathname)?.[1];
-    const secret = url.hash.slice(1);
-    if (id && ID_PATTERNS.calendar.test(id) && ID_PATTERNS.secret.test(secret)) return { id, secret };
-  } catch {
-    // URL の形でなければ null
-  }
-  return null;
-}
 
 export function JoinSheet(props: { sessionId: string; onClose: () => void; onJoined: () => void }) {
   const calendars = storage.calendars();

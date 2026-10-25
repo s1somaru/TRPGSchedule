@@ -13,6 +13,9 @@ type LimiterName = "RL_CREATE" | "RL_WRITE" | "RL_READ";
  */
 export function rateLimitKey(ip: string): string {
   if (!ip.includes(":")) return ip;
+  // IPv4 を IPv6 の形で書いたもの(::ffff:1.2.3.4)は、IPv4 のアドレスとして数える
+  const mapped = /^::ffff:(d{1,3}(?:.d{1,3}){3})$/i.exec(ip);
+  if (mapped) return mapped[1]!;
   // "::" で省略された部分を 0 で埋めて、先頭の4つの区切り(64ビット)を取り出す
   const [head = "", tail = ""] = ip.toLowerCase().split("::");
   const headParts = head ? head.split(":") : [];

@@ -71,7 +71,7 @@ function Home(props: { onCreate: () => void }) {
         <p class="hero-lead">参加している卓ぜんぶに、あなたの予定が反映されます。ログインは要りません。</p>
         <div class="hero-actions">
           {mine ? (
-            <Link href={`/c/${mine.id}#${mine.secret}`} class="btn btn-primary btn-big">
+            <Link href={`/c/${mine.id}`} class="btn btn-primary btn-big">
               自分のカレンダーを開く
             </Link>
           ) : (
@@ -100,7 +100,7 @@ function Home(props: { onCreate: () => void }) {
               <ul class="list" aria-label="カレンダー">
                 {calendars.map((c) => (
                   <li key={c.id}>
-                    <Link href={`/c/${c.id}#${c.secret}`}>
+                    <Link href={`/c/${c.id}`}>
                       <span>
                         <span class="tag">カレンダー</span>
                         {c.displayName}

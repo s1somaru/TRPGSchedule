@@ -245,7 +245,7 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
           {me && viewer && (
             <>
               <Link
-                href={`/c/${viewer.id}#${viewer.secret}`}
+                href={`/c/${viewer.id}`}
                 state={{ returnTo: { sessionId: session.id, title: session.title } }}
                 class="btn btn-primary btn-block"
               >

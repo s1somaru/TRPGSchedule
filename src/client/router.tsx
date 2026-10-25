@@ -14,8 +14,18 @@ export interface NavState {
   category?: "bug" | "request" | "question" | "other";
 }
 
+/**
+ * 画面を移る前に確かめる関数。false を返すと移らない。
+ * (編集URLの保存画面で、保存する前にヘッダやフッタのリンクで移ってしまわないように使う)
+ */
+let guard: (() => boolean) | null = null;
+export function setNavigationGuard(fn: (() => boolean) | null): void {
+  guard = fn;
+}
+
 /** 画面を移る(ページの読み込みはしない) */
 export function navigate(to: string, opts: { replace?: boolean; state?: NavState } = {}): void {
+  if (guard && !guard()) return;
   if (opts.replace) history.replaceState(opts.state ?? null, "", to);
   else history.pushState(opts.state ?? null, "", to);
   window.scrollTo(0, 0);

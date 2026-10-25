@@ -133,8 +133,8 @@ export const ContactFeedback = v.strictObject({
     v.pipe(
       v.string(),
       v.transform(cleanSingleLine),
-      v.maxGraphemes(FEEDBACK_LIMITS.replyTo, `連絡先は${FEEDBACK_LIMITS.replyTo}文字までです`),
-      v.maxLength(FEEDBACK_LIMITS.replyTo * 4, "連絡先が長すぎます"),
+      v.maxGraphemes(FEEDBACK_LIMITS.replyTo, `返信先は${FEEDBACK_LIMITS.replyTo}文字までです`),
+      v.maxLength(FEEDBACK_LIMITS.replyTo * 4, "返信先が長すぎます"),
     ),
   ),
   page: v.optional(FeedbackPage),

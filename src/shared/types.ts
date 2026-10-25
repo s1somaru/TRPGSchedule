@@ -64,7 +64,6 @@ export interface ParticipantView {
   calendarDeleted: boolean;
   /** 候補日に当たる日だけ。記録・削除済みカレンダーは空 */
   availability: Availability;
-  lastUpdatedAt: string | null;
 }
 
 export interface SessionResponse {

@@ -3,22 +3,13 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { Availability, CalendarResponse, DayEntry } from "../shared/types";
 import { api, ApiClientError } from "./api";
+import { applyChanges } from "./logic";
 
 export type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 
 type Changes = Record<string, DayEntry | null>;
 
 const DEBOUNCE_MS = 1000;
-
-/** 予定に変更を当てはめる */
-export function applyChanges(base: Availability, changes: Changes): Availability {
-  const next = { ...base };
-  for (const [date, entry] of Object.entries(changes)) {
-    if (entry) next[date] = entry;
-    else delete next[date];
-  }
-  return next;
-}
 
 export function useAutosave(opts: {
   calendarId: string;
@@ -73,9 +64,11 @@ export function useAutosave(opts: {
         optsRef.current.onUnauthorized();
         return;
       }
-      // 送れなかった分は戻しておき、あとでもう一度送る
+      // 送れなかった分は戻しておく(新しい変更のほうを優先)。
+      // 自動では送り直さない。「もう一度」を押すか、次に予定を変えたときに一緒に送る
       pending.current = { ...batch, ...pending.current };
       setState("error");
+      return;
     } finally {
       inflight.current = false;
     }

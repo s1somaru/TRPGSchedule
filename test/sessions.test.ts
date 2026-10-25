@@ -404,7 +404,7 @@ describe("記録になった卓", () => {
     const body = await getSession(s.id);
     expect(body.archived).toBe(true);
     expect(body.participants.map((p) => p.displayName)).toEqual(["GM", "PL"]);
-    expect(body.participants.every((p) => Object.keys(p.availability).length === 0 && p.lastUpdatedAt === null)).toBe(true);
+    expect(body.participants.every((p) => Object.keys(p.availability).length === 0 && !("lastUpdatedAt" in p))).toBe(true);
 
     expect(await code(await api("PATCH", `/api/sessions/${s.id}`, { secret: gm.editSecret, body: { title: "x" } }))).toBe("SESSION_ARCHIVED");
     expect(await code(await join(s.id, await createCalendar()))).toBe("SESSION_ARCHIVED");
@@ -419,7 +419,7 @@ describe("カレンダーが削除された参加者", () => {
     expect((await api("DELETE", `/api/calendars/${pl.id}`, { secret: pl.editSecret })).status).toBe(204);
     const body = await getSession(s.id);
     const gone = body.participants.find((p) => p.id === plPart.id)!;
-    expect(gone).toMatchObject({ displayName: "PL", calendarDeleted: true, availability: {}, lastUpdatedAt: null });
+    expect(gone).toMatchObject({ displayName: "PL", calendarDeleted: true, availability: {} });
 
     const promote = await api("PATCH", `/api/sessions/${s.id}/participants/${plPart.id}`, { secret: gm.editSecret, body: { role: "GM" } });
     expect(promote.status).toBe(422);

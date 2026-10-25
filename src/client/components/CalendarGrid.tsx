@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "preact/hooks";
 import { addDays } from "../../shared/dates";
 import type { Availability } from "../../shared/types";
+import { monthsBetween } from "../logic";
 import { dateLabel, STATUS_LABEL, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 
 const LONG_PRESS_MS = 400;
@@ -30,17 +31,6 @@ interface Gesture {
   timer: number | null;
   painting: boolean;
   painted: Set<string>;
-}
-
-/** 表示する月(今月〜入力できる最後の日の月) */
-function monthsBetween(from: string, to: string): { year: number; month: number }[] {
-  const [fy, fm] = from.split("-").map(Number) as [number, number];
-  const [ty, tm] = to.split("-").map(Number) as [number, number];
-  const out = [];
-  for (let y = fy, m = fm; y < ty || (y === ty && m <= tm); m === 12 ? (y++, (m = 1)) : m++) {
-    out.push({ year: y, month: m });
-  }
-  return out;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");

@@ -3,6 +3,8 @@
 import { ID_PATTERNS } from "../shared/ids";
 
 const KEY = "takuyose:v1";
+/** フッタの評価を送ったことの記録(Footer.tsx) */
+export const RATED_KEY = "takuyose:rated";
 const MAX_ITEMS = 20;
 
 export interface StoredCalendar {
@@ -128,6 +130,7 @@ export const storage = {
   clear(): void {
     try {
       localStorage.removeItem(KEY);
+      localStorage.removeItem(RATED_KEY);
     } catch {
       // 何もしない
     }

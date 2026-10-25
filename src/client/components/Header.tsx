@@ -19,7 +19,7 @@ export function Header(props: { path: string }) {
         </Link>
         <nav class="site-nav" aria-label="メニュー">
           {mine && !onCalendar && (
-            <Link href={`/c/${mine.id}#${mine.secret}`} class="nav-link">
+            <Link href={`/c/${mine.id}`} class="nav-link">
               自分のカレンダー
             </Link>
           )}

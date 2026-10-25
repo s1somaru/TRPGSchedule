@@ -20,7 +20,6 @@ export interface ParticipantRow {
   display_name_snapshot: string | null;
   calendar_name: string | null;
   availability: string | null;
-  last_updated_at: string | null;
 }
 
 export interface SessionBundle {
@@ -35,7 +34,7 @@ const SELECT_SESSION =
 
 const SELECT_PARTICIPANTS = `
   SELECT p.id, p.role, p.joined_at, p.calendar_id, p.display_name_override, p.display_name_snapshot,
-         c.display_name AS calendar_name, c.last_updated_at,
+         c.display_name AS calendar_name,
          -- 予定は、この卓の候補日に当たる日だけを取り出す(全期間を Worker に運ばない)
          (SELECT json_group_object(key, json(value)) FROM json_each(c.availability)
           WHERE key IN (SELECT value FROM json_each((SELECT candidate_dates FROM sessions WHERE id = ?1)))
@@ -110,7 +109,6 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
       displayName: displayNameOf(row, archived),
       calendarDeleted: row.calendar_id === null,
       availability,
-      lastUpdatedAt: showSchedule ? row.last_updated_at : null,
     };
   });
 

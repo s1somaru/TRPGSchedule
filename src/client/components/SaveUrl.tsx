@@ -1,6 +1,7 @@
 // 編集URLを保存してもらうパネル(spec.md 6.3 ②)。
 // URL の文字列そのものは大きく出さず、コピー・QR・共有のボタンで渡す
 import { useEffect, useState } from "preact/hooks";
+import { setNavigationGuard } from "../router";
 import { Qr } from "./Qr";
 
 export function SaveUrl(props: {
@@ -22,7 +23,14 @@ export function SaveUrl(props: {
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    // アプリの中のリンク(ヘッダ・フッタなど)で移るときも確かめる
+    setNavigationGuard(() =>
+      confirm("編集URLをまだ保存していません。このまま移ると、あとで編集できなくなるかもしれません。移りますか?"),
+    );
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      setNavigationGuard(null);
+    };
   }, [saved]);
 
   const copy = async () => {
@@ -80,7 +88,15 @@ export function SaveUrl(props: {
         URLを保存した
       </label>
 
-      <button type="button" class="btn btn-primary btn-block btn-big" disabled={!saved} onClick={props.onDone}>
+      <button
+        type="button"
+        class="btn btn-primary btn-block btn-big"
+        disabled={!saved}
+        onClick={() => {
+          setNavigationGuard(null);
+          props.onDone();
+        }}
+      >
         {props.doneLabel}
       </button>
     </div>

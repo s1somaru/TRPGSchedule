@@ -13,7 +13,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply takuyose --remote",
     "feedback": "wrangler d1 execute takuyose --remote --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\"",
     "feedback:local": "wrangler d1 execute takuyose --local --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\"",
-    "feedback:export": "node -e \"require('fs').mkdirSync('backups',{recursive:true})\" && wrangler d1 export takuyose --remote --table feedback --output backups/feedback.sql"
+    "feedback:export": "node -e \"require('fs').mkdirSync('backups',{recursive:true})\" && wrangler d1 execute takuyose --remote --json --command \"SELECT id, created_at, kind, rating, category, page, message FROM feedback ORDER BY created_at\" > backups/feedback.json"
   },
   "dependencies": {
     "hono": "4.13.13",

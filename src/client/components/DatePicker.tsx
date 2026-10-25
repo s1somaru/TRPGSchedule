@@ -4,6 +4,7 @@
 //   3. 1日ずつ足し引き(日をタップ)
 import { useState } from "preact/hooks";
 import { addDays, addMonths } from "../../shared/dates";
+import { ALL_DAYS, computePicked as compute, monthsBetween, toggleDay, type PickerState as State } from "../logic";
 import { LIMITS } from "../../shared/limits";
 import type { Availability } from "../../shared/types";
 import { dateLabel, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
@@ -17,36 +18,6 @@ interface Props {
   /** 自分の予定(薄く重ねて見せる) */
   availability?: Availability;
   onChange: (dates: string[]) => void;
-}
-
-interface State {
-  period: { from: string; to: string } | null;
-  /** 曜日ごとのオン・オフ(0 = 日曜) */
-  weekdays: boolean[];
-  /** 期間とは別に足した日 */
-  extras: string[];
-  /** 期間の中から外した日 */
-  removed: string[];
-}
-
-const ALL_DAYS = [true, true, true, true, true, true, true];
-
-function daysBetween(from: string, to: string): string[] {
-  const out: string[] = [];
-  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
-  return out;
-}
-
-/** 今の状態から、選ばれている日を出す */
-function compute(s: State): string[] {
-  const set = new Set<string>();
-  if (s.period) {
-    for (const d of daysBetween(s.period.from, s.period.to)) {
-      if (s.weekdays[weekdayOf(d)] && !s.removed.includes(d)) set.add(d);
-    }
-  }
-  for (const d of s.extras) set.add(d);
-  return [...set].sort();
 }
 
 const monthStart = (date: string) => `${date.slice(0, 7)}-01`;
@@ -99,25 +70,7 @@ export function DatePicker(props: Props) {
       return;
     }
     // 1日ずつの足し引き
-    const inPeriod =
-      state.period !== null &&
-      date >= state.period.from &&
-      date <= state.period.to &&
-      state.weekdays[weekdayOf(date)];
-    const isSelected = selected.includes(date);
-    if (isSelected) {
-      apply({
-        ...state,
-        extras: state.extras.filter((d) => d !== date),
-        removed: inPeriod ? [...state.removed, date] : state.removed,
-      });
-    } else {
-      apply({
-        ...state,
-        removed: state.removed.filter((d) => d !== date),
-        extras: inPeriod ? state.extras : [...state.extras, date],
-      });
-    }
+    apply(toggleDay(state, date));
   };
 
   const setWeekdays = (weekdays: boolean[]) => apply({ ...state, weekdays });
@@ -261,12 +214,7 @@ function PickerGrid(props: {
   pickingStart: string | null;
   onTap: (date: string) => void;
 }) {
-  const months: { year: number; month: number }[] = [];
-  const [fy, fm] = props.today.split("-").map(Number) as [number, number];
-  const [ty, tm] = props.range.to.split("-").map(Number) as [number, number];
-  for (let y = fy, m = fm; y < ty || (y === ty && m <= tm); m === 12 ? (y++, (m = 1)) : m++) {
-    months.push({ year: y, month: m });
-  }
+  const months = monthsBetween(props.today, props.range.to);
   const selected = new Set(props.selected);
 
   return (
