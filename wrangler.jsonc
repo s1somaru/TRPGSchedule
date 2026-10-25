@@ -31,5 +31,10 @@
   // 毎日の定期処理。UTC 18時 = 日本時間の朝3時
   "triggers": { "crons": ["0 18 * * *"] },
 
-  "observability": { "enabled": true }
+  // ログ。アプリが出すログ(エラーの種類・定期処理の件数)だけを残す。
+  // Cloudflare が自動で残すリクエストごとの記録は切る(秘密が入った Authorization ヘッダを残さないため)
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "invocation_logs": false }
+  }
 }
