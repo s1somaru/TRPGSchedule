@@ -14,7 +14,9 @@ export const JUST_CREATED_KEY = "trpg-schedule:just-created";
 
 export function NewSession() {
   const calendars = storage.calendars();
+  // いつものカレンダー(この端末で一番最近開いたもの)を使う
   const [calendarId, setCalendarId] = useState(calendars[0]?.id ?? "");
+  const [choosing, setChoosing] = useState(false);
   const [availability, setAvailability] = useState<Availability | undefined>(undefined);
   const [title, setTitle] = useState("");
   const [dates, setDates] = useState<string[]>([]);
@@ -74,7 +76,19 @@ export function NewSession() {
     <main class="page page-wide">
       <h1>卓を作る</h1>
       <form class="stack" onSubmit={submit}>
-        {calendars.length > 1 ? (
+        <p class="muted">
+          「{cal.displayName}」のカレンダーで、GMとして参加します。
+          {calendars.length > 1 && !choosing && (
+            <>
+              {" "}
+              <button type="button" class="btn-link" onClick={() => setChoosing(true)}>
+                別のカレンダーを使う
+              </button>
+            </>
+          )}
+        </p>
+        {/* 1人1つのカレンダーが前提。この端末に複数あるときだけ選べるようにする */}
+        {choosing && (
           <fieldset class="card">
             <legend class="step-title">GMとして参加するカレンダー</legend>
             {calendars.map((c) => (
@@ -89,8 +103,6 @@ export function NewSession() {
               </label>
             ))}
           </fieldset>
-        ) : (
-          <p class="muted">「{cal.displayName}」のカレンダーで、GMとして参加します。</p>
         )}
 
         <label class="field">

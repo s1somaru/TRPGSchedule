@@ -125,6 +125,10 @@ export function JoinSheet(props: { sessionId: string; onClose: () => void; onJoi
   );
 }
 
+/**
+ * 1人1つのカレンダーが前提なので、いつものカレンダー(この端末で一番最近開いたもの)で参加するのを主役にする。
+ * 別のカレンダー・新しく作る・編集URLを貼る、は「ほかの方法」にまとめる
+ */
 function ChooseForm(props: {
   calendars: StoredCalendar[];
   busy: boolean;
@@ -135,6 +139,7 @@ function ChooseForm(props: {
 }) {
   const [selected, setSelected] = useState(props.calendars[0]!.id);
   const [name, setName] = useState("");
+  const [showOthers, setShowOthers] = useState(false);
   const cal = props.calendars.find((c) => c.id === selected)!;
   const nameLength = graphemeLength(name.trim());
 
@@ -146,21 +151,9 @@ function ChooseForm(props: {
         props.onJoin(cal, name.trim());
       }}
     >
-      {props.calendars.length === 1 ? (
-        <p>
-          「<strong>{cal.displayName}</strong>」のカレンダーで参加しますか?
-        </p>
-      ) : (
-        <fieldset class="card">
-          <legend class="step-title">どのカレンダーで参加しますか?</legend>
-          {props.calendars.map((c) => (
-            <label class="check" key={c.id}>
-              <input type="radio" name="cal" checked={c.id === selected} onChange={() => setSelected(c.id)} />
-              {c.displayName}
-            </label>
-          ))}
-        </fieldset>
-      )}
+      <p>
+        「<strong>{cal.displayName}</strong>」のカレンダーで参加します。
+      </p>
       <label class="field">
         <span>この卓での名前(空なら「{cal.displayName}」)</span>
         <input type="text" value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="例:PC名" />
@@ -174,14 +167,32 @@ function ChooseForm(props: {
       <button type="submit" class="btn btn-primary btn-block btn-big" disabled={props.busy || nameLength > LIMITS.displayName}>
         {props.busy ? "参加しています…" : "参加する"}
       </button>
-      <div class="btn-row">
-        <button type="button" class="btn-link" onClick={props.onCreate}>
-          新しくカレンダーを作って参加
+
+      {!showOthers ? (
+        <button type="button" class="btn-link" onClick={() => setShowOthers(true)}>
+          ほかの方法で参加する
         </button>
-        <button type="button" class="btn-link" onClick={props.onPaste}>
-          ほかの端末のカレンダーを使う
-        </button>
-      </div>
+      ) : (
+        <div class="card stack">
+          {props.calendars.length > 1 && (
+            <fieldset>
+              <legend class="step-title">この端末にある別のカレンダー</legend>
+              {props.calendars.map((c) => (
+                <label class="check" key={c.id}>
+                  <input type="radio" name="cal" checked={c.id === selected} onChange={() => setSelected(c.id)} />
+                  {c.displayName}
+                </label>
+              ))}
+            </fieldset>
+          )}
+          <button type="button" class="btn btn-block" onClick={props.onPaste}>
+            ほかの端末のカレンダーを使う(編集URLを貼る)
+          </button>
+          <button type="button" class="btn btn-block" onClick={props.onCreate}>
+            新しくカレンダーを作って参加
+          </button>
+        </div>
+      )}
     </form>
   );
 }
@@ -215,6 +226,11 @@ function CreateForm(props: {
       <p class="muted">
         予定を入れるカレンダーを作ります。ほかの卓でも、このカレンダーをそのまま使えます。
       </p>
+      {props.onBack && (
+        <p class="alert alert-notice">
+          この端末には、すでにあなたのカレンダーがあります。カレンダーは1人1つあれば、どの卓にも使えます。新しく作ると、今のカレンダーの予定は引き継がれません。
+        </p>
+      )}
       <label class="field">
         <span>名前</span>
         <input type="text" value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="例:たろう" />
