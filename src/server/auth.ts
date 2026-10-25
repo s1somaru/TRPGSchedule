@@ -52,8 +52,16 @@ export async function requireOwner(c: Context<AppEnv>, calendarId: string): Prom
   return cal;
 }
 
+/** 秘密が必要な操作で、秘密からカレンダーを特定する。なければ 401 */
+export async function requireCalendar(c: Context<AppEnv>): Promise<AuthedCalendar> {
+  const secret = readBearer(c);
+  const cal = secret ? await findCalendarBySecret(c, secret) : null;
+  if (!cal) throw Errors.unauthorized();
+  return cal;
+}
+
 /** 最後に使った日時を記録する。書き込みを減らすため、同じ日(日本時間)の2回目以降はしない */
-function touchAccess(c: Context<AppEnv>, calendarId: string, lastAccessedAt: string): void {
+export function touchAccess(c: Context<AppEnv>, calendarId: string, lastAccessedAt: string): void {
   const now = new Date();
   if (jstNow(new Date(lastAccessedAt)).today === jstNow(now).today) return;
   const task = c.env.DB.prepare("UPDATE calendars SET last_accessed_at = ?1 WHERE id = ?2")

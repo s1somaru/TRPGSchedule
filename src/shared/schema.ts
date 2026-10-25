@@ -72,3 +72,45 @@ export const CreateShareToken = v.strictObject({
     ),
   ),
 });
+
+// ---- 卓(spec.md 5.6) ----
+
+/** 卓のタイトル */
+export const Title = v.pipe(
+  v.string(),
+  v.transform(cleanSingleLine),
+  v.minGraphemes(1, "タイトルを入れてください"),
+  v.maxGraphemes(LIMITS.title, `タイトルは${LIMITS.title}文字までです`),
+);
+
+/** 候補日。重複は不可。並びは問わない(サーバーで日付順にする) */
+export const CandidateDates = v.pipe(
+  v.array(DateString),
+  v.minLength(1, "候補日を1日以上選んでください"),
+  v.maxLength(LIMITS.candidateDates, `候補日は${LIMITS.candidateDates}日までです`),
+  v.check((dates) => new Set(dates).size === dates.length, "同じ候補日が重なっています"),
+);
+
+export const CreateSession = v.strictObject({
+  title: Title,
+  candidateDates: CandidateDates,
+  displayName: v.optional(DisplayName),
+});
+
+export const PatchSession = v.strictObject({
+  title: v.optional(Title),
+  candidateDates: v.optional(CandidateDates),
+  confirmedDate: v.optional(v.nullable(DateString)),
+});
+
+export const JoinSession = v.strictObject({
+  shareToken: v.optional(
+    v.pipe(v.string(), v.regex(ID_PATTERNS.shareToken, "参加用のトークンの形が正しくありません")),
+  ),
+  displayName: v.optional(DisplayName),
+});
+
+export const PatchParticipant = v.strictObject({
+  role: v.optional(v.picklist(["GM", "PL"], "役割は GM か PL です")),
+  displayName: v.optional(v.nullable(DisplayName)),
+});
