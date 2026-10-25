@@ -4,6 +4,11 @@
   "main": "src/server/index.ts",
   "compatibility_date": "2026-10-01",
 
+  // 公開のスイッチ。false のあいだは Cloudflare に置くだけで、外からは開けない
+  // (公開するときは workers_dev を true にしてデプロイし直す)
+  "workers_dev": false,
+  "preview_urls": false,
+
   // 画面のファイル(Vite で作ったもの)。/api だけ Worker のコードに通す
   "assets": {
     "directory": "./dist/client",
@@ -11,12 +16,12 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // データの保存先。database_id は本番用を作ったときに書き換える(手元の開発では使われない)
+  // データの保存先(本番はアジア太平洋に作成。手元の開発では、この ID の DB は使われず手元の DB を使う)
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "takuyose",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "fe596a95-3efe-4e72-8180-e9b3045360fd",
       "migrations_dir": "migrations"
     }
   ],
