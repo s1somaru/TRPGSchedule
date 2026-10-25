@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { addDays, jstNow } from "../src/shared/dates";
 import { ID_PATTERNS, newSecret } from "../src/shared/ids";
 import type { CalendarCreatedResponse, SessionResponse } from "../src/shared/types";
-import { updateRole } from "../src/server/db-sessions";
+import { deleteParticipant, updateParticipantName, updateRole } from "../src/server/db-sessions";
 import { api, createCalendar } from "./helpers";
 
 const day = (n: number) => addDays(jstNow().today, n);
@@ -268,7 +268,7 @@ describe("役割の変更", () => {
       updateRole(env.DB, plPart.id, s.id, "PL"),
       updateRole(env.DB, gmPart.id, s.id, "PL"),
     ]);
-    expect(results.filter(Boolean)).toHaveLength(1);
+    expect(results.filter((r) => r === "ok")).toHaveLength(1);
     expect((await getSession(s.id)).participants.filter((p) => p.role === "GM")).toHaveLength(1);
   });
 });
@@ -428,5 +428,17 @@ describe("カレンダーが削除された参加者", () => {
     const promote = await api("PATCH", `/api/sessions/${s.id}/participants/${plPart.id}`, { secret: gm.editSecret, body: { role: "GM" } });
     expect(promote.status).toBe(422);
     expect((await api("DELETE", `/api/sessions/${s.id}/participants/${plPart.id}`, { secret: gm.editSecret })).status).toBe(204);
+  });
+});
+
+describe("記録になった卓は、書き込みの SQL の段階でも変えない", () => {
+  it("確かめたあとに記録になっても、役割・名前・外す操作は通らない", async () => {
+    const { s, plPart } = await setup();
+    await env.DB.prepare("UPDATE sessions SET archived_at = ?1 WHERE id = ?2").bind(new Date().toISOString(), s.id).run();
+    expect(await updateRole(env.DB, plPart.id, s.id, "GM")).toBe("archived");
+    expect(await updateParticipantName(env.DB, plPart.id, s.id, "x")).toBe(false);
+    expect(await deleteParticipant(env.DB, plPart.id, s.id)).toBe("archived");
+    const row = await env.DB.prepare("SELECT role, display_name_override FROM participations WHERE id = ?1").bind(plPart.id).first();
+    expect(row).toEqual({ role: "PL", display_name_override: null });
   });
 });

@@ -1,17 +1,21 @@
 // カレンダーまわりの DB 操作。
 // SQL は必ず prepare(...).bind(...) で書き、入力を SQL の文字列につなげない(spec.md 7.1)
 import { inputRange, pastCutoff } from "../shared/dates";
+import { MAX_AVAILABILITY_CHARS } from "../shared/limits";
 import type { Availability, CalendarResponse, DayEntry } from "../shared/types";
 
-interface CalendarRow {
+export interface CalendarRow {
   id: string;
   display_name: string;
   availability: string;
   last_updated_at: string;
+  last_accessed_at: string;
 }
 
-const SELECT_CALENDAR =
-  "SELECT id, display_name, availability, last_updated_at FROM calendars WHERE id = ?1";
+const COLUMNS = "id, display_name, availability, last_updated_at, last_accessed_at";
+const SELECT_CALENDAR = `SELECT ${COLUMNS} FROM calendars WHERE id = ?1`;
+/** 本人確認つきで読む(ID と秘密のハッシュの両方が一致する行だけ) */
+const SELECT_OWNED = `SELECT ${COLUMNS} FROM calendars WHERE id = ?1 AND edit_secret_hash = ?2`;
 
 /** DB の行を API の形にする。90日より前の予定は返さない */
 export function toCalendarResponse(row: CalendarRow, now = new Date()): CalendarResponse {
@@ -35,6 +39,11 @@ export async function getCalendar(db: D1Database, id: string): Promise<CalendarR
   return row ? toCalendarResponse(row) : null;
 }
 
+/** 本人確認と読み込みを1回の問い合わせで行う。違えば null */
+export async function getOwnedCalendar(db: D1Database, id: string, secretHash: string): Promise<CalendarRow | null> {
+  return db.prepare(SELECT_OWNED).bind(id, secretHash).first<CalendarRow>();
+}
+
 export async function insertCalendar(
   db: D1Database,
   args: { id: string; secretHash: string; displayName: string; now: string },
@@ -48,54 +57,64 @@ export async function insertCalendar(
     .run();
 }
 
+/** 表示名を変える。本人確認も同じ1往復で行う。秘密が違えば null */
 export async function updateDisplayName(
   db: D1Database,
   id: string,
+  secretHash: string,
   displayName: string,
   now: string,
-): Promise<CalendarResponse> {
+): Promise<CalendarRow | null> {
   const [, selected] = await db.batch([
     db
-      .prepare("UPDATE calendars SET display_name = ?1, last_updated_at = ?2 WHERE id = ?3")
-      .bind(displayName, now, id),
-    db.prepare(SELECT_CALENDAR).bind(id),
+      .prepare("UPDATE calendars SET display_name = ?1, last_updated_at = ?2 WHERE id = ?3 AND edit_secret_hash = ?4")
+      .bind(displayName, now, id, secretHash),
+    db.prepare(SELECT_OWNED).bind(id, secretHash),
   ]);
-  return toCalendarResponse((selected!.results as CalendarRow[])[0]!);
+  return (selected!.results as CalendarRow[])[0] ?? null;
 }
+
+/** 今の予定に変更分(?1)を混ぜた結果。90日より前(?2)の日は捨てる */
+const MERGED = `(
+  SELECT COALESCE(json_group_object(key, json(value)), '{}') FROM (
+    SELECT key, value FROM json_each(calendars.availability)
+     WHERE key >= ?2 AND key NOT IN (SELECT key FROM json_each(?1))
+    UNION ALL
+    SELECT key, value FROM json_each(?1) WHERE type <> 'null'
+    ORDER BY key
+  )
+)`;
+
+export type MergeResult = { kind: "ok"; row: CalendarRow } | { kind: "unauthorized" } | { kind: "too_large" };
 
 /**
  * 予定を更新する。同時に保存しても片方が消えないよう、1つの SQL 文で「混ぜて書く」(spec.md 7.1)。
  * - 送られた日は1日分を丸ごと置き換える(null の日は消す)
  * - 90日より前の日も、ついでに消す
- * 日数がいくつでも、渡す値は「変更分の JSON」と「消す境目の日付」の2つだけなので、
- * D1 の「1文あたりの値は100個まで」という制限にもかからない
+ * - 混ぜた結果が大きすぎるときは保存しない(とても大きなデータで卓ページを重くされないように)
+ * - 本人確認(ID と秘密のハッシュ)も同じ文の条件に入れ、1往復で済ませる
+ * 日数がいくつでも、渡す値は数個だけなので、D1 の「1文あたりの値は100個まで」という制限にもかからない
  */
 export async function mergeAvailability(
   db: D1Database,
   id: string,
+  secretHash: string,
   changes: Record<string, DayEntry | null>,
   now: Date,
-): Promise<CalendarResponse> {
-  const [, selected] = await db.batch([
+): Promise<MergeResult> {
+  const [updated, selected] = await db.batch([
     db
       .prepare(
-        `UPDATE calendars SET
-           availability = (
-             SELECT COALESCE(json_group_object(key, json(value)), '{}') FROM (
-               SELECT key, value FROM json_each(calendars.availability)
-                WHERE key >= ?2 AND key NOT IN (SELECT key FROM json_each(?1))
-               UNION ALL
-               SELECT key, value FROM json_each(?1) WHERE type <> 'null'
-               ORDER BY key
-             )
-           ),
-           last_updated_at = ?3
-         WHERE id = ?4`,
+        `UPDATE calendars SET availability = ${MERGED}, last_updated_at = ?3
+         WHERE id = ?4 AND edit_secret_hash = ?5 AND length(${MERGED}) <= ?6`,
       )
-      .bind(JSON.stringify(changes), pastCutoff(now), now.toISOString(), id),
-    db.prepare(SELECT_CALENDAR).bind(id),
+      .bind(JSON.stringify(changes), pastCutoff(now), now.toISOString(), id, secretHash, MAX_AVAILABILITY_CHARS),
+    db.prepare(SELECT_OWNED).bind(id, secretHash),
   ]);
-  return toCalendarResponse((selected!.results as CalendarRow[])[0]!, now);
+  const row = (selected!.results as CalendarRow[])[0];
+  if (!row) return { kind: "unauthorized" };
+  if (updated!.meta.changes === 0) return { kind: "too_large" };
+  return { kind: "ok", row };
 }
 
 /** 自分が唯一のGMをしている、記録になっていない卓 */

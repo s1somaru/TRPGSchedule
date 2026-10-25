@@ -35,10 +35,17 @@ const SELECT_SESSION =
 
 const SELECT_PARTICIPANTS = `
   SELECT p.id, p.role, p.joined_at, p.calendar_id, p.display_name_override, p.display_name_snapshot,
-         c.display_name AS calendar_name, c.availability, c.last_updated_at
+         c.display_name AS calendar_name, c.last_updated_at,
+         -- 予定は、この卓の候補日に当たる日だけを取り出す(全期間を Worker に運ばない)
+         (SELECT json_group_object(key, json(value)) FROM json_each(c.availability)
+          WHERE key IN (SELECT value FROM json_each((SELECT candidate_dates FROM sessions WHERE id = ?1)))
+         ) AS availability
   FROM participations p LEFT JOIN calendars c ON c.id = p.calendar_id
   WHERE p.session_id = ?1
   ORDER BY (p.role = 'GM') DESC, p.joined_at, p.id`;
+
+/** その卓が記録になっていないこと(SQL の中で使う。?2 = 卓ID) */
+const NOT_ARCHIVED = `EXISTS (SELECT 1 FROM sessions WHERE id = ?2 AND archived_at IS NULL)`;
 
 /** カレンダーが残っているGMの人数(SQL の中で使う) */
 const ACTIVE_GM_COUNT = `
@@ -211,8 +218,11 @@ export async function insertParticipant(
   return row && row.archived_at !== null ? "archived" : "full";
 }
 
+export type RoleResult = "ok" | "last_gm" | "archived";
+
 /**
- * 役割を変える。PL にするときは「カレンダーが残っているGMが2人以上いる」ときだけ成功する。
+ * 役割を変える。記録になっていない卓だけ。
+ * PL にするときは「カレンダーが残っているGMが2人以上いる」ときだけ成功する
  * (カレンダーが削除されたGMは、人数に関係なく PL にできる)
  */
 export async function updateRole(
@@ -220,48 +230,65 @@ export async function updateRole(
   participantId: string,
   sessionId: string,
   role: Role,
-): Promise<boolean> {
+): Promise<RoleResult> {
   const sql =
     role === "PL"
       ? `UPDATE participations SET role = 'PL'
-         WHERE id = ?1 AND session_id = ?2 AND role = 'GM'
+         WHERE id = ?1 AND session_id = ?2 AND role = 'GM' AND ${NOT_ARCHIVED}
            AND (calendar_id IS NULL OR ${ACTIVE_GM_COUNT} > 1)`
-      : `UPDATE participations SET role = 'GM' WHERE id = ?1 AND session_id = ?2`;
+      : `UPDATE participations SET role = 'GM' WHERE id = ?1 AND session_id = ?2 AND ${NOT_ARCHIVED}`;
   const res = await db.prepare(sql).bind(participantId, sessionId).run();
-  // すでに PL の人を PL にする場合は、変わる行がなくても成功とみなす
-  if (res.meta.changes > 0) return true;
-  if (role === "GM") return true;
+  if (res.meta.changes > 0) return "ok";
+  // 変わらなかった理由を調べる
   const row = await db
-    .prepare("SELECT role FROM participations WHERE id = ?1")
-    .bind(participantId)
-    .first<{ role: Role }>();
-  return row?.role === "PL";
+    .prepare(
+      `SELECT p.role, s.archived_at FROM participations p JOIN sessions s ON s.id = p.session_id
+       WHERE p.id = ?1 AND p.session_id = ?2`,
+    )
+    .bind(participantId, sessionId)
+    .first<{ role: Role; archived_at: string | null }>();
+  if (!row || row.archived_at !== null) return "archived";
+  // すでに PL の人を PL にする場合は、変わる行がなくても成功とみなす
+  return role === "PL" && row.role === "PL" ? "ok" : "last_gm";
 }
 
+/** この卓での名前を変える。記録になっていない卓だけ。変えたら true */
 export async function updateParticipantName(
   db: D1Database,
   participantId: string,
+  sessionId: string,
   displayName: string | null,
-): Promise<void> {
-  await db
-    .prepare("UPDATE participations SET display_name_override = ?1 WHERE id = ?2")
-    .bind(displayName, participantId)
+): Promise<boolean> {
+  const res = await db
+    .prepare(
+      `UPDATE participations SET display_name_override = ?3
+       WHERE id = ?1 AND session_id = ?2 AND ${NOT_ARCHIVED}`,
+    )
+    .bind(participantId, sessionId, displayName)
     .run();
+  return res.meta.changes > 0;
 }
 
-/** 外す・抜ける。カレンダーが残っている最後のGMは消さない。消したら true */
+export type RemoveResult = "ok" | "last_gm" | "archived";
+
+/** 外す・抜ける。記録になっていない卓だけ。カレンダーが残っている最後のGMは消さない */
 export async function deleteParticipant(
   db: D1Database,
   participantId: string,
   sessionId: string,
-): Promise<boolean> {
+): Promise<RemoveResult> {
   const res = await db
     .prepare(
       `DELETE FROM participations
-       WHERE id = ?1 AND session_id = ?2
+       WHERE id = ?1 AND session_id = ?2 AND ${NOT_ARCHIVED}
          AND NOT (role = 'GM' AND calendar_id IS NOT NULL AND ${ACTIVE_GM_COUNT} <= 1)`,
     )
     .bind(participantId, sessionId)
     .run();
-  return res.meta.changes > 0;
+  if (res.meta.changes > 0) return "ok";
+  const row = await db
+    .prepare("SELECT archived_at FROM sessions WHERE id = ?1")
+    .bind(sessionId)
+    .first<{ archived_at: string | null }>();
+  return !row || row.archived_at !== null ? "archived" : "last_gm";
 }

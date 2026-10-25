@@ -52,6 +52,16 @@ export async function requireOwner(c: Context<AppEnv>, calendarId: string): Prom
   return cal;
 }
 
+/**
+ * 本人用の API で、ヘッダの秘密をハッシュにして返す(DB にはまだ問い合わせない)。
+ * 本人確認は、このハッシュを使う SQL の条件の中で行う(1往復で済ませるため)
+ */
+export async function ownerSecretHash(c: Context<AppEnv>, calendarId: string): Promise<string> {
+  const secret = readBearer(c);
+  if (!secret || !ID_PATTERNS.calendar.test(calendarId)) throw Errors.unauthorized();
+  return sha256Hex(secret);
+}
+
 /** 秘密が必要な操作で、秘密からカレンダーを特定する。なければ 401 */
 export async function requireCalendar(c: Context<AppEnv>): Promise<AuthedCalendar> {
   const secret = readBearer(c);

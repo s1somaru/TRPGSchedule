@@ -17,7 +17,7 @@ import type {
   MySessionSummary,
   ShareTokenResponse,
 } from "../../shared/types";
-import { readBearer, requireOwner, sha256Hex } from "../auth";
+import { ownerSecretHash, readBearer, requireOwner, sha256Hex, touchAccess } from "../auth";
 import * as db from "../db";
 import { ApiError, Errors, readBody } from "../errors";
 import { rateLimit } from "../ratelimit";
@@ -42,22 +42,30 @@ calendars.post("/", rateLimit("RL_CREATE"), async (c) => {
   return c.json(body, 201);
 });
 
-// 取得
-calendars.get("/:id", async (c) => {
-  const { id } = await requireOwner(c, c.req.param("id"));
-  return c.json((await db.getCalendar(c.env.DB, id))!);
+// 取得(本人確認と読み込みを1往復で)
+calendars.get("/:id", rateLimit("RL_READ"), async (c) => {
+  const id = c.req.param("id");
+  const row = await db.getOwnedCalendar(c.env.DB, id, await ownerSecretHash(c, id));
+  if (!row) throw Errors.unauthorized();
+  touchAccess(c, row.id, row.last_accessed_at);
+  return c.json(db.toCalendarResponse(row));
 });
 
-// 表示名の変更
+// 表示名の変更(本人確認と書き込みを1往復で)
 calendars.patch("/:id", rateLimit("RL_WRITE"), async (c) => {
-  const { id } = await requireOwner(c, c.req.param("id"));
+  const id = c.req.param("id");
+  const hash = await ownerSecretHash(c, id);
   const { displayName } = await readBody(c, PatchCalendar);
-  return c.json(await db.updateDisplayName(c.env.DB, id, displayName, new Date().toISOString()));
+  const row = await db.updateDisplayName(c.env.DB, id, hash, displayName, new Date().toISOString());
+  if (!row) throw Errors.unauthorized();
+  touchAccess(c, row.id, row.last_accessed_at);
+  return c.json(db.toCalendarResponse(row));
 });
 
-// 予定の更新
+// 予定の更新(本人確認と書き込みを1往復で)
 calendars.put("/:id/availability", rateLimit("RL_WRITE"), async (c) => {
-  const { id } = await requireOwner(c, c.req.param("id"));
+  const id = c.req.param("id");
+  const hash = await ownerSecretHash(c, id);
   const { availability } = await readBody(c, AvailabilityUpdate);
   const now = new Date();
 
@@ -70,9 +78,17 @@ calendars.put("/:id/availability", rateLimit("RL_WRITE"), async (c) => {
     });
   }
   if (Object.keys(availability).length === 0) {
-    return c.json((await db.getCalendar(c.env.DB, id))!);
+    const row = await db.getOwnedCalendar(c.env.DB, id, hash);
+    if (!row) throw Errors.unauthorized();
+    return c.json(db.toCalendarResponse(row, now));
   }
-  return c.json(await db.mergeAvailability(c.env.DB, id, availability, now));
+  const result = await db.mergeAvailability(c.env.DB, id, hash, availability, now);
+  if (result.kind === "unauthorized") throw Errors.unauthorized();
+  if (result.kind === "too_large") {
+    throw Errors.validation("予定が多すぎて保存できません。古いメモを減らしてください");
+  }
+  touchAccess(c, result.row.id, result.row.last_accessed_at);
+  return c.json(db.toCalendarResponse(result.row, now));
 });
 
 // 削除
@@ -128,7 +144,7 @@ calendars.post("/:id/share-tokens", rateLimit("RL_TOKEN"), async (c) => {
 });
 
 // 参加中の卓と、これまでのセッション
-calendars.get("/:id/sessions", async (c) => {
+calendars.get("/:id/sessions", rateLimit("RL_READ"), async (c) => {
   const { id } = await requireOwner(c, c.req.param("id"));
   const rows = await db.listMySessions(c.env.DB, id);
   const { today } = jstNow();

@@ -466,11 +466,64 @@ describe("回数制限(書き込み・共有トークン)", () => {
     expect(statuses[60]).toBe(429);
   });
 
-  it("読み取りには回数制限をかけない", async () => {
+  it("読み取りは同じ接続元から1分に120回まで", async () => {
     const cal = await createCalendar();
     const ip = freshIp();
-    for (let i = 0; i < 70; i++) {
-      expect((await api("GET", `/api/calendars/${cal.id}`, { secret: cal.editSecret, ip })).status).toBe(200);
+    const statuses: number[] = [];
+    for (let i = 0; i < 121; i++) {
+      statuses.push((await api("GET", `/api/calendars/${cal.id}`, { secret: cal.editSecret, ip })).status);
     }
+    expect(statuses.slice(0, 120).every((s) => s === 200)).toBe(true);
+    expect(statuses[120]).toBe(429);
+  });
+
+  it("IPv6 は先頭64ビットが同じなら、同じ接続元として数える", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) {
+      // 末尾だけ違う(同じ回線の)アドレス
+      const ip = `2001:db8:aa:bb::${(i + 1).toString(16)}`;
+      statuses.push((await api("POST", "/api/calendars", { body: { displayName: "a" }, ip })).status);
+    }
+    expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
+});
+
+describe("見た目をごまかす文字・大きすぎるデータ", () => {
+  it("同じ文字に続く飾り記号は3個までに縮める", async () => {
+    const cal = await createCalendar("a" + "́".repeat(1000));
+    expect(cal.displayName).toBe("a" + "́".repeat(3));
+  });
+
+  it("目に見えない文字は取り除く。目に見えない文字だけの名前は断る", async () => {
+    const cal = await createCalendar("た​ろ‍う﻿ ");
+    expect(cal.displayName).toBe("たろう");
+    const res = await api("POST", "/api/calendars", { body: { displayName: "ㅤㅤ" } });
+    expect(res.status).toBe(422);
+  });
+
+  it("絵文字の組み合わせに必要な文字は残す", async () => {
+    const cal = await createCalendar("👨‍👩‍👧");
+    expect(cal.displayName).toBe("👨‍👩‍👧");
+  });
+
+  it("予定全体が大きすぎるときは保存しない(422)", async () => {
+    const cal = await createCalendar();
+    const huge: Record<string, { s: string; memo: string }> = {};
+    for (let i = 1; i <= 175; i++) huge[day(i)] = { s: "o", memo: "あ".repeat(800) };
+    await env.DB.prepare("UPDATE calendars SET availability = ?1 WHERE id = ?2").bind(JSON.stringify(huge), cal.id).run();
+    const res = await putAvailability(cal.id, cal.editSecret, { [day(176)]: { s: "o", memo: "あ".repeat(100) } });
+    expect(res.status).toBe(422);
+    // 減らす方向の保存はできる
+    const shrink = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [day(i + 1), null]));
+    expect((await putAvailability(cal.id, cal.editSecret, shrink)).status).toBe(200);
+  });
+
+  it("カレンダーが削除されたあとに保存すると 401(500 にならない)", async () => {
+    const cal = await createCalendar();
+    await api("DELETE", `/api/calendars/${cal.id}`, { secret: cal.editSecret });
+    expect((await putAvailability(cal.id, cal.editSecret, { [day(1)]: { s: "o" } })).status).toBe(401);
+    expect((await api("PATCH", `/api/calendars/${cal.id}`, { secret: cal.editSecret, body: { displayName: "x" } })).status).toBe(401);
   });
 });

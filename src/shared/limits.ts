@@ -8,4 +8,17 @@ export const LIMITS = {
   availabilityPerRequest: 200,
 } as const;
 
+/**
+ * 実際の長さの上限(JavaScript の文字数)。見た目の文字数とは別に、とても長いデータを防ぐ。
+ * 絵文字の組み合わせ(👨‍👩‍👧 など)は見た目1文字でも8文字ぶんになるので、見た目の上限の8倍にしておく
+ */
+export const RAW_LIMITS = {
+  displayName: 160,
+  memo: 800,
+  title: 400,
+} as const;
+
+/** 1つのカレンダーの予定全体の大きさの上限(文字数) */
+export const MAX_AVAILABILITY_CHARS = 131072;
+
 export const ShareTokenTtl = { default: 86400, min: 60, max: 86400 } as const;

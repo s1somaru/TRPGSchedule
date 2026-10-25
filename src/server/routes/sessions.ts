@@ -78,7 +78,7 @@ sessions.post("/", rateLimit("RL_CREATE"), async (c) => {
 });
 
 // 取得(秘密は任意。あれば me が入る)
-sessions.get("/:id", async (c) => {
+sessions.get("/:id", rateLimit("RL_READ"), async (c) => {
   const id = sessionIdParam(c);
   const hasHeader = c.req.header("Authorization") !== undefined;
   const secret = readBearer(c);
@@ -214,11 +214,14 @@ sessions.patch("/:id/participants/:pid", rateLimit("RL_WRITE"), async (c) => {
   }
 
   if (body.role !== undefined) {
-    const ok = await db.updateRole(c.env.DB, target.id, bundle.session.id, body.role);
-    if (!ok) throw lastGmError();
+    const result = await db.updateRole(c.env.DB, target.id, bundle.session.id, body.role);
+    if (result === "archived") throw archivedError();
+    if (result === "last_gm") throw lastGmError();
   }
   if (body.displayName !== undefined) {
-    await db.updateParticipantName(c.env.DB, target.id, body.displayName);
+    // 記録になっていない卓だけ変える(確かめてから書き込むまでの間に、記録になった場合も含めて)
+    const changed = await db.updateParticipantName(c.env.DB, target.id, bundle.session.id, body.displayName);
+    if (!changed) throw archivedError();
   }
 
   const after = (await db.loadSession(c.env.DB, bundle.session.id))!;
@@ -233,7 +236,8 @@ sessions.delete("/:id/participants/:pid", rateLimit("RL_WRITE"), async (c) => {
   const target = findTarget(bundle, c);
   if (!isGm && target.calendar_id !== cal.id) throw Errors.forbidden("ほかの人を外せるのはGMだけです");
   if (bundle.session.archived_at !== null) throw archivedError();
-  const ok = await db.deleteParticipant(c.env.DB, target.id, bundle.session.id);
-  if (!ok) throw lastGmError();
+  const result = await db.deleteParticipant(c.env.DB, target.id, bundle.session.id);
+  if (result === "archived") throw archivedError();
+  if (result === "last_gm") throw lastGmError();
   return c.body(null, 204);
 });

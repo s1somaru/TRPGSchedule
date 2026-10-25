@@ -2,7 +2,7 @@
 import * as v from "valibot";
 import { isValidDate } from "./dates";
 import { ID_PATTERNS } from "./ids";
-import { LIMITS, ShareTokenTtl } from "./limits";
+import { LIMITS, RAW_LIMITS, ShareTokenTtl } from "./limits";
 import { cleanMultiLine, cleanSingleLine } from "./text";
 
 export { LIMITS, ShareTokenTtl };
@@ -20,6 +20,7 @@ export const DisplayName = v.pipe(
   v.transform(cleanSingleLine),
   v.minGraphemes(1, "名前を入れてください"),
   v.maxGraphemes(LIMITS.displayName, `名前は${LIMITS.displayName}文字までです`),
+  v.maxLength(RAW_LIMITS.displayName, "名前が長すぎます"),
 );
 
 /** メモ。空なら「メモなし」として扱う */
@@ -27,6 +28,7 @@ export const Memo = v.pipe(
   v.string(),
   v.transform(cleanMultiLine),
   v.maxGraphemes(LIMITS.memo, `メモは${LIMITS.memo}文字までです`),
+  v.maxLength(RAW_LIMITS.memo, "メモが長すぎます"),
 );
 
 export const StatusSchema = v.picklist(["o", "t", "x"], "記号は ◯ △ × のどれかです");
@@ -74,6 +76,7 @@ export const Title = v.pipe(
   v.transform(cleanSingleLine),
   v.minGraphemes(1, "タイトルを入れてください"),
   v.maxGraphemes(LIMITS.title, `タイトルは${LIMITS.title}文字までです`),
+  v.maxLength(RAW_LIMITS.title, "タイトルが長すぎます"),
 );
 
 /** 候補日。重複は不可。並びは問わない(サーバーで日付順にする) */
