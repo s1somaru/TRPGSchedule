@@ -10,7 +10,7 @@ import { CalendarGrid } from "../components/CalendarGrid";
 import { MemoEditor } from "../components/MemoEditor";
 import { SaveUrl } from "../components/SaveUrl";
 import { Sheet } from "../components/Sheet";
-import { graphemeLength, relativeTime, shortDate, STATUS_SYMBOL } from "../format";
+import { confirmedSummary, graphemeLength, relativeTime, shortDate, STATUS_SYMBOL } from "../format";
 import { BackIcon, EraserIcon, PencilIcon } from "../components/Icons";
 import { Link, navigate, navState } from "../router";
 import { editUrl, storage } from "../storage";
@@ -286,12 +286,13 @@ function Editor(props: {
             <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "reissue" })}>
               URLを作り直す
             </button>
-            <button type="button" class="btn btn-block btn-danger" onClick={() => setPanel({ kind: "delete" })}>
-              カレンダーを削除
-            </button>
             <Link href="/" class="btn btn-block">
               トップへ
             </Link>
+            {/* 取り返しのつかない操作は一番下に */}
+            <button type="button" class="btn btn-block btn-danger menu-danger" onClick={() => setPanel({ kind: "delete" })}>
+              カレンダーを削除
+            </button>
           </div>
         </Sheet>
       )}
@@ -378,6 +379,7 @@ function PenBar(props: { pen: Pen; onChange: (pen: Pen) => void }) {
 
 function SessionsSection(props: { sessions: MySessionsResponse | null }) {
   const [showAll, setShowAll] = useState(false);
+  const today = jstNow().today;
   if (!props.sessions) return null;
   const { active, past } = props.sessions;
   const visiblePast = showAll ? past : past.slice(0, 5);
@@ -397,8 +399,8 @@ function SessionsSection(props: { sessions: MySessionsResponse | null }) {
                   {s.title}
                 </span>
                 <span class="sub">
-                  {s.confirmedDate
-                    ? `${shortDate(s.confirmedDate)} 開催`
+                  {s.confirmedDates.length > 0
+                    ? confirmedSummary(s.confirmedDates, today)
                     : `${shortDate(s.firstCandidateDate)}〜${shortDate(s.lastCandidateDate)}`}
                 </span>
               </Link>
@@ -418,7 +420,10 @@ function SessionsSection(props: { sessions: MySessionsResponse | null }) {
                     <span class={`tag ${s.role === "GM" ? "tag-gm" : ""}`}>{s.role}</span>
                     {s.title}
                   </span>
-                  <span class="sub">{s.confirmedDate.replaceAll("-", "/")}</span>
+                  <span class="sub">
+                    {s.confirmedDates.at(-1)!.replaceAll("-", "/")}
+                    {s.confirmedDates.length > 1 ? `(全${s.confirmedDates.length}回)` : ""}
+                  </span>
                 </Link>
               </li>
             ))}

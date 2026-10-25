@@ -72,6 +72,13 @@ function Home(props: { onCreate: () => void }) {
             卓を作る(GM)
           </Link>
         </div>
+        {mine && (
+          <p class="hero-sub">
+            <button type="button" class="btn-link" onClick={props.onCreate}>
+              別のカレンダーを作る
+            </button>
+          </p>
+        )}
       </section>
 
       {(calendars.length > 0 || sessions.length > 0) && (
@@ -171,6 +178,11 @@ function CreateCalendar(props: { onCancel: () => void; onCreated: (id: string, s
     <main class="page">
       <h1>カレンダーを作る</h1>
       <p class="lead">卓のページには、この名前で表示されます(あとで変えられます)。</p>
+      {storage.calendars().length > 0 && (
+        <p class="alert alert-notice">
+          この端末には、すでにあなたのカレンダーがあります。カレンダーは1人1つあれば、どの卓にも使えます。新しく作ると、今のカレンダーの予定は引き継がれません。
+        </p>
+      )}
       <form class="stack" onSubmit={submit}>
         <label class="field">
           <span>名前</span>

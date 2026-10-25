@@ -894,12 +894,19 @@ table.sched {
   color: var(--x);
 }
 
+/* メモがある印(吹き出し)。マスの右上に、はっきり見える大きさで出す */
 .memo-mark {
   position: absolute;
   top: 2px;
-  right: 6px;
-  font-size: 0.8rem;
-  color: var(--accent);
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
 }
 
 .sched .col-sum {
@@ -1332,4 +1339,55 @@ body {
     margin-left: auto;
     margin-right: auto;
   }
+}
+
+/* ===================================================================
+   開催日が複数・押せる行・メニューなど
+   =================================================================== */
+
+.confirmed-banner.multi {
+  text-align: left;
+  font-size: 1rem;
+}
+
+.banner-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.confirmed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+/* 過ぎた開催日は薄く */
+.confirmed-list li.done {
+  opacity: 0.45;
+  font-weight: 500;
+}
+
+/* 行を押すと、その日の詳しい予定が開く */
+.sched tr.row-tap {
+  cursor: pointer;
+}
+
+.sched tr.row-tap:hover td,
+.sched tr.row-tap:hover th {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+
+.hero-sub {
+  margin: 10px 0 0;
+}
+
+/* 取り返しのつかない操作の前に、少し間をあける */
+.menu-danger {
+  margin-top: 20px !important;
 }

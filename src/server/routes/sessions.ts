@@ -103,20 +103,22 @@ sessions.patch("/:id", rateLimit("RL_WRITE"), async (c) => {
   // 範囲のチェックは、新しく足した日だけ(すでにある過去の候補日は残してよい)
   assertDatesInRange(candidateDates.filter((d) => !currentDates.includes(d)));
 
-  const confirmedDate =
-    body.confirmedDate === undefined ? bundle.session.confirmed_date : body.confirmedDate;
-  if (confirmedDate !== null && !candidateDates.includes(confirmedDate)) {
+  // 開催日は複数あってよい。すべて候補日の中から選ぶ
+  const confirmedDates = [
+    ...(body.confirmedDates ?? (JSON.parse(bundle.session.confirmed_dates) as string[])),
+  ].sort();
+  if (confirmedDates.some((d) => !candidateDates.includes(d))) {
     throw new ApiError(
       422,
       "CONFIRMED_DATE_NOT_IN_CANDIDATES",
-      "開催日は候補日の中から選んでください。開催日を候補日から外すときは、先に開催日の決定を取り消してください",
+      "開催日は候補日の中から選んでください。開催日を候補日から外すときは、先にその日の決定を取り消してください",
     );
   }
 
   const updated = await db.updateSession(c.env.DB, bundle.session.id, {
     title: body.title ?? bundle.session.title,
     candidateDates,
-    confirmedDate,
+    confirmedDates,
     now: new Date().toISOString(),
   });
   if (!updated) throw archivedError();

@@ -29,7 +29,8 @@ export interface MySessionSummary {
   id: string;
   title: string;
   role: "GM" | "PL";
-  confirmedDate: string | null;
+  /** 開催日(日付順)。未確定なら空 */
+  confirmedDates: string[];
   firstCandidateDate: string;
   lastCandidateDate: string;
 }
@@ -38,7 +39,8 @@ export interface PastSessionSummary {
   id: string;
   title: string;
   role: "GM" | "PL";
-  confirmedDate: string;
+  /** 開催日(日付順・すべて過ぎた日) */
+  confirmedDates: string[];
   archived: boolean;
 }
 
@@ -69,7 +71,8 @@ export interface SessionResponse {
   id: string;
   title: string;
   candidateDates: string[];
-  confirmedDate: string | null;
+  /** 開催日(日付順)。複数あってよい。未確定なら空 */
+  confirmedDates: string[];
   archived: boolean;
   participants: ParticipantView[];
   /** 見ている人が参加者なら、その参加情報 */

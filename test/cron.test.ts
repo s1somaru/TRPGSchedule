@@ -22,9 +22,9 @@ async function seedSession(opts: {
   const t = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO sessions (id, title, candidate_dates, confirmed_date, last_date, archived_at, created_at, updated_at)
+      `INSERT INTO sessions (id, title, candidate_dates, confirmed_dates, last_date, archived_at, created_at, updated_at)
        VALUES (?1, 'テスト卓', ?2, ?3, ?4, NULL, ?5, ?5)`,
-    ).bind(id, JSON.stringify([opts.lastDate]), opts.confirmed ? opts.lastDate : null, opts.lastDate, t),
+    ).bind(id, JSON.stringify([opts.lastDate]), JSON.stringify(opts.confirmed ? [opts.lastDate] : []), opts.lastDate, t),
     ...opts.members.map((m, i) =>
       env.DB.prepare(
         `INSERT INTO participations (id, session_id, calendar_id, role, display_name_override, joined_at)

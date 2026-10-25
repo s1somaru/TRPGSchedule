@@ -1,14 +1,14 @@
 // 入力された文字の掃除(spec.md 5.7 / 7.2)
 
 // 文字の向きを変える特殊文字。表示を偽装するのに使われるので取り除く
-const BIDI_CONTROLS = /[؜‎‏‪-‮⁦-⁩]/g;
+const BIDI_CONTROLS = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
 // 改行以外の制御文字
 const CONTROLS_EXCEPT_NEWLINE = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/g;
 // 目に見えない文字(幅ゼロの文字・ソフトハイフン・ハングルの埋め字など)。
 // 空に見える名前や、ほかの人とそっくりな名前を作れないように取り除く
-const INVISIBLES = /[­ᅟᅠ᠎​‌⁠-⁤ㅤ﻿ﾠ]/g;
-// 幅ゼロの結合文字(ZWJ)は絵文字の組み合わせ(👨‍👩‍👧 など)に必要なので、絵文字のあいだにあるものだけ残す
-const STRAY_ZWJ = /(?<!\p{Extended_Pictographic}️?)‍|‍(?!\p{Extended_Pictographic})/gu;
+const INVISIBLES = /[\u00AD\u115F\u1160\u180E\u200B\u200C\u2060-\u2064\u3164\uFEFF\uFFA0]/g;
+// 幅ゼロの結合文字(ZWJ)は絵文字の組み合わせ(家族の絵文字など)に必要なので、絵文字のあいだにあるものだけ残す
+const STRAY_ZWJ = /(?<!\p{Extended_Pictographic}\uFE0F?)\u200D|\u200D(?!\p{Extended_Pictographic})/gu;
 // 同じ文字に続く飾り記号(結合文字)は3個までにする。
 // 見た目は1文字のまま、とても長い文字を作れないようにするため
 const MARK_RUNS = /(\p{M}{3})\p{M}+/gu;

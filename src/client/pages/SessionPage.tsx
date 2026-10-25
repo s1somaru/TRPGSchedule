@@ -106,6 +106,31 @@ export function SessionPage(props: { id: string }) {
   return <ActiveView session={load.session} viewer={load.viewer} onChanged={refresh} />;
 }
 
+/** 開催日の帯。1日ならそのまま、複数なら並べる(過ぎた日は薄く) */
+function ConfirmedBanner(props: { dates: string[]; today: string; archived?: boolean }) {
+  if (props.dates.length === 0) return null;
+  const cls = `confirmed-banner ${props.archived ? "archived" : ""}`;
+  if (props.dates.length === 1) {
+    return (
+      <div class={cls} role="status">
+        <strong>{dateLabel(props.dates[0]!)}</strong>に開催
+      </div>
+    );
+  }
+  return (
+    <div class={`${cls} multi`} role="status">
+      <span class="banner-label">開催日({props.dates.length}回)</span>
+      <ul class="confirmed-list">
+        {props.dates.map((d) => (
+          <li key={d} class={d < props.today ? "done" : ""}>
+            {dateLabel(d)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function CopyLinkButton(props: { id: string; primary?: boolean }) {
   const [done, setDone] = useState<"ok" | "failed" | null>(null);
   const url = `${location.origin}/s/${props.id}`;
@@ -184,11 +209,7 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
       <main class="page page-wide">
         <h1>{session.title}</h1>
 
-        {session.confirmedDate && (
-          <div class="confirmed-banner" role="status">
-            <strong>{dateLabel(session.confirmedDate)}</strong>に開催
-          </div>
-        )}
+        <ConfirmedBanner dates={session.confirmedDates} today={today} />
 
         {justCreated ? (
           <div class="card stack">
@@ -207,7 +228,7 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
         )}
 
         <ScheduleSection session={session} today={today} onDateTap={(date) => setPanel({ kind: "day", date })} />
-        <p class="muted">日付を押すと、その日のメモが見られます。{isGm ? "開催日もそこで決められます。" : ""}</p>
+        <p class="muted">日付や行を押すと、その日の全員の予定とメモが見られます。{isGm ? "開催日もそこで決められます。" : ""}</p>
 
         {actionError && (
           <p class="error-text" role="alert">
@@ -262,9 +283,13 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
           date={panel.date}
           isGm={isGm}
           onClose={close}
-          onConfirm={(date) => {
+          onConfirm={(date, confirm) => {
             close();
-            void act((s) => api.patchSession(session.id, s, { confirmedDate: date }));
+            // 開催日は複数あってよい。この日だけを足す・外す
+            const next = confirm
+              ? [...session.confirmedDates, date]
+              : session.confirmedDates.filter((d) => d !== date);
+            void act((s) => api.patchSession(session.id, s, { confirmedDates: next }));
           }}
         />
       )}
@@ -360,6 +385,7 @@ function ScheduleSection(props: { session: SessionResponse; today: string; onDat
 
   return (
     <section>
+      {/* 絞り込み・畳む操作は表の上にまとめる(長い表の一番下まで行かなくても戻せるように) */}
       <div class="chips table-tools">
         <button type="button" class="chip" aria-pressed={!onlyOk} onClick={() => setOnlyOk(false)}>
           すべての候補日({upcomingAll.length})
@@ -367,6 +393,16 @@ function ScheduleSection(props: { session: SessionResponse; today: string; onDat
         <button type="button" class="chip" aria-pressed={onlyOk} onClick={() => setOnlyOk(true)}>
           開催できる日だけ
         </button>
+        {upcoming.length > FIRST_ROWS && (
+          <button type="button" class="chip" aria-pressed={showAll} onClick={() => setShowAll(!showAll)}>
+            {showAll ? `最初の${FIRST_ROWS}日だけにする` : `残り${hidden}日も表示`}
+          </button>
+        )}
+        {past.length > 0 && (
+          <button type="button" class="chip" aria-pressed={showPast} onClick={() => setShowPast(!showPast)}>
+            {showPast ? "過ぎた候補日を隠す" : `過ぎた候補日(${past.length})も表示`}
+          </button>
+        )}
       </div>
       {rows.length > 0 ? (
         <SessionTable session={session} today={today} dates={rows} onDateTap={props.onDateTap} />
@@ -375,23 +411,13 @@ function ScheduleSection(props: { session: SessionResponse; today: string; onDat
           {onlyOk ? "GM全員が ◯ か △ の日は、まだありません。" : "これからの候補日はありません。"}
         </p>
       )}
-      <div class="btn-row table-more">
-        {hidden > 0 && (
+      {hidden > 0 && (
+        <div class="btn-row table-more">
           <button type="button" class="btn" onClick={() => setShowAll(true)}>
             残り{hidden}日を表示
           </button>
-        )}
-        {showAll && upcoming.length > FIRST_ROWS && (
-          <button type="button" class="btn" onClick={() => setShowAll(false)}>
-            最初の{FIRST_ROWS}日だけにする
-          </button>
-        )}
-        {past.length > 0 && (
-          <button type="button" class="btn" onClick={() => setShowPast(!showPast)}>
-            {showPast ? "過ぎた候補日を隠す" : `過ぎた候補日(${past.length})を表示`}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -456,10 +482,11 @@ function DaySheet(props: {
   date: string;
   isGm: boolean;
   onClose: () => void;
-  onConfirm: (date: string | null) => void;
+  onConfirm: (date: string, confirm: boolean) => void;
 }) {
   const sum = judgeDate(props.session.participants, props.date);
-  const confirmed = props.session.confirmedDate === props.date;
+  const confirmed = props.session.confirmedDates.includes(props.date);
+  const hasOthers = props.session.confirmedDates.some((d) => d !== props.date);
   const note = {
     ok: "GM全員が ◯ か △ の日です",
     ng: "GMの誰かが × の日です",
@@ -491,12 +518,12 @@ function DaySheet(props: {
         </ul>
         {props.isGm &&
           (confirmed ? (
-            <button type="button" class="btn btn-block" onClick={() => props.onConfirm(null)}>
-              開催日の決定を取り消す
+            <button type="button" class="btn btn-block" onClick={() => props.onConfirm(props.date, false)}>
+              この日の開催を取り消す
             </button>
           ) : (
-            <button type="button" class="btn btn-primary btn-block btn-big" onClick={() => props.onConfirm(props.date)}>
-              この日に決める
+            <button type="button" class="btn btn-primary btn-block btn-big" onClick={() => props.onConfirm(props.date, true)}>
+              {hasOthers ? "この日も開催日にする" : "この日に決める"}
             </button>
           ))}
         <button type="button" class="btn btn-block" onClick={props.onClose}>
@@ -559,8 +586,10 @@ function EditSheet(props: {
         <div class={`counter ${titleLength > LIMITS.title ? "over" : ""}`}>
           {titleLength}/{LIMITS.title}
         </div>
-        {props.session.confirmedDate && (
-          <p class="muted">開催日({dateLabel(props.session.confirmedDate)})は候補日から外せません。外すときは、先に決定を取り消してください。</p>
+        {props.session.confirmedDates.length > 0 && (
+          <p class="muted">
+            開催日({props.session.confirmedDates.map((d) => dateLabel(d)).join("、")})は候補日から外せません。外すときは、先にその日の開催を取り消してください。
+          </p>
         )}
         <DatePicker initial={props.session.candidateDates} range={inputRange()} today={today} onChange={setDates} />
         {error && (
@@ -651,15 +680,11 @@ function ArchiveView(props: { session: SessionResponse; viewer: StoredCalendar |
   return (
     <main class="page stack">
       <h1>{session.title}</h1>
-      <div class="confirmed-banner archived">
-        {session.confirmedDate ? (
-          <>
-            <strong>{dateLabel(session.confirmedDate)}</strong>に開催
-          </>
-        ) : (
-          "開催日は決まりませんでした"
-        )}
-      </div>
+      {session.confirmedDates.length > 0 ? (
+        <ConfirmedBanner dates={session.confirmedDates} today="9999-12-31" archived />
+      ) : (
+        <div class="confirmed-banner archived">開催日は決まりませんでした</div>
+      )}
       <p class="muted">この卓は記録として保存されています。</p>
       <h2>参加者</h2>
       <ul class="list">

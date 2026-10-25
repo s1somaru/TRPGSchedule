@@ -86,7 +86,14 @@ export const CreateSession = v.strictObject({
 export const PatchSession = v.strictObject({
   title: v.optional(Title),
   candidateDates: v.optional(CandidateDates),
-  confirmedDate: v.optional(v.nullable(DateString)),
+  /** 開催日。毎回リストをまるごと送る。空なら未確定に戻す */
+  confirmedDates: v.optional(
+    v.pipe(
+      v.array(DateString),
+      v.maxLength(LIMITS.candidateDates, `開催日は${LIMITS.candidateDates}日までです`),
+      v.check((dates) => new Set(dates).size === dates.length, "同じ開催日が重なっています"),
+    ),
+  ),
 });
 
 export const JoinSession = v.strictObject({

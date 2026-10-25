@@ -58,7 +58,7 @@ describe("卓の作成", () => {
     });
     expect(s.id).toMatch(ID_PATTERNS.session);
     expect(s.candidateDates).toEqual([day(2), day(5), day(9)]);
-    expect(s.confirmedDate).toBeNull();
+    expect(s.confirmedDates).toEqual([]);
     expect(s.participants).toHaveLength(1);
     expect(s.participants[0]).toMatchObject({ role: "GM", displayName: "KPたろう", calendarDeleted: false });
     expect(s.me).toEqual({ participantId: s.participants[0]!.id, role: "GM" });
@@ -294,23 +294,36 @@ describe("卓の変更と日程確定", () => {
     expect(body.title).toBe("新タイトル");
     expect(body.candidateDates).toEqual([day(3), day(5), day(7)]);
 
-    res = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDate: day(5) } });
+    res = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDates: [day(5)] } });
     body = await res.json<SessionResponse>();
-    expect(body.confirmedDate).toBe(day(5));
+    expect(body.confirmedDates).toEqual([day(5)]);
     const row = await env.DB.prepare("SELECT last_date FROM sessions WHERE id = ?1").bind(s.id).first<{ last_date: string }>();
     expect(row!.last_date).toBe(day(5));
 
-    res = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDate: null } });
-    expect((await res.json<SessionResponse>()).confirmedDate).toBeNull();
+    res = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDates: [] } });
+    expect((await res.json<SessionResponse>()).confirmedDates).toEqual([]);
+  });
+
+  it("開催日は複数決められ、日付順になる。記録の基準日は一番遅い開催日", async () => {
+    const { s, gm } = await setup();
+    const url = `/api/sessions/${s.id}`;
+    await api("PATCH", url, { secret: gm.editSecret, body: { candidateDates: [day(3), day(5), day(7)] } });
+    const res = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDates: [day(7), day(3)] } });
+    expect((await res.json<SessionResponse>()).confirmedDates).toEqual([day(3), day(7)]);
+    const row = await env.DB.prepare("SELECT last_date FROM sessions WHERE id = ?1").bind(s.id).first<{ last_date: string }>();
+    expect(row!.last_date).toBe(day(7));
+    // 同じ日を2回は入れられない
+    const dup = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDates: [day(3), day(3)] } });
+    expect(dup.status).toBe(422);
   });
 
   it("候補日にない日は開催日にできず、開催日を候補日から外すこともできない", async () => {
     const { s, gm } = await setup();
     const url = `/api/sessions/${s.id}`;
-    let res = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDate: day(4) } });
+    let res = await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDates: [day(3), day(4)] } });
     expect(await code(res)).toBe("CONFIRMED_DATE_NOT_IN_CANDIDATES");
 
-    await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDate: day(3) } });
+    await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDates: [day(3)] } });
     res = await api("PATCH", url, { secret: gm.editSecret, body: { candidateDates: [day(5)] } });
     expect(await code(res)).toBe("CONFIRMED_DATE_NOT_IN_CANDIDATES");
     // 開催日を残せば、ほかの候補日は自由に変えられる
@@ -329,7 +342,7 @@ describe("卓の変更と日程確定", () => {
     const res = await api("PATCH", url, { secret: gm.editSecret, body: { candidateDates: [day(-2), day(-5)] } });
     expect(await code(res)).toBe("DATE_OUT_OF_RANGE");
     // 過去の候補日も開催日にできる
-    expect((await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDate: day(-2) } })).status).toBe(200);
+    expect((await api("PATCH", url, { secret: gm.editSecret, body: { confirmedDates: [day(-2)] } })).status).toBe(200);
   });
 });
 

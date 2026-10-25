@@ -41,3 +41,14 @@ export const STATUS_LABEL: Record<Status, string> = { o: "参加できる", t: "
 export function graphemeLength(text: string): number {
   return [...new Intl.Segmenter("ja", { granularity: "grapheme" }).segment(text)].length;
 }
+
+/**
+ * 開催日の一覧を短く表す。次の開催日(なければ最後の開催日)と、ほかの日数。
+ * 例:「11/14 開催(ほか2日)」
+ */
+export function confirmedSummary(dates: string[], today: string): string {
+  const next = dates.find((d) => d >= today) ?? dates[dates.length - 1];
+  if (!next) return "";
+  const others = dates.length - 1;
+  return `${shortDate(next)} 開催${others > 0 ? `(ほか${others}日)` : ""}`;
+}

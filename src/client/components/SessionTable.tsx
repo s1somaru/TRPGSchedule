@@ -3,6 +3,7 @@
 import { judgeDate } from "../../shared/judge";
 import type { SessionResponse } from "../../shared/types";
 import { dateLabel, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
+import { MemoIcon } from "./Icons";
 
 export function SessionTable(props: {
   session: SessionResponse;
@@ -40,22 +41,26 @@ export function SessionTable(props: {
             const classes = [
               sum.judgement === "ng" ? "row-ng" : "",
               date < today ? "row-past" : "",
-              session.confirmedDate === date ? "row-confirmed" : "",
+              session.confirmedDates.includes(date) ? "row-confirmed" : "",
             ].join(" ");
             return (
-              <tr key={date} class={classes}>
+              // 行のどこを押しても、その日の詳しい予定(メモ)を開く。キーボードでは日付のボタンを使う
+              <tr key={date} class={`${classes} row-tap`} onClick={() => props.onDateTap(date)}>
                 <th scope="row" class="col-date">
                   <button
                     type="button"
                     class="date-btn"
-                    onClick={() => props.onDateTap(date)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onDateTap(date);
+                    }}
                     aria-label={`${dateLabel(date)}の詳しい予定`}
                   >
                     <span class={wd === 0 ? "sun" : wd === 6 ? "sat" : ""}>
                       {shortDate(date)}({weekdayLabel(wd)})
                     </span>
-                    {session.confirmedDate === date && <span class="badge badge-confirmed">開催</span>}
-                    {sum.allOk && session.confirmedDate !== date && <span class="badge badge-ok">全員OK</span>}
+                    {session.confirmedDates.includes(date) && <span class="badge badge-confirmed">開催</span>}
+                    {sum.allOk && !session.confirmedDates.includes(date) && <span class="badge badge-ok">全員OK</span>}
                   </button>
                 </th>
                 <td class="col-sum">
@@ -67,8 +72,8 @@ export function SessionTable(props: {
                     <td key={p.id} class={e ? `c-${e.s}` : ""}>
                       {e ? STATUS_SYMBOL[e.s] : ""}
                       {e?.memo && (
-                        <span class="memo-mark" aria-label="メモあり">
-                          *
+                        <span class="memo-mark" title="メモあり(押すと見られます)">
+                          <MemoIcon size={15} title="メモあり" />
                         </span>
                       )}
                     </td>

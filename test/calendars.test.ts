@@ -267,13 +267,13 @@ async function seedSession(opts: {
   const now = new Date().toISOString();
   const stmts = [
     env.DB.prepare(
-      `INSERT INTO sessions (id, title, candidate_dates, confirmed_date, last_date, archived_at, created_at, updated_at)
+      `INSERT INTO sessions (id, title, candidate_dates, confirmed_dates, last_date, archived_at, created_at, updated_at)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)`,
     ).bind(
       opts.id,
       opts.title,
       JSON.stringify(opts.dates),
-      opts.confirmed ?? null,
+      JSON.stringify(opts.confirmed ? [opts.confirmed] : []),
       opts.confirmed ?? opts.dates[opts.dates.length - 1],
       opts.archived ? now : null,
       now,
@@ -306,6 +306,27 @@ describe("参加中の卓と、これまでのセッション", () => {
       ["先月の卓", false],
       ["昔の記録", true],
     ]);
+  });
+});
+
+describe("開催日が複数ある卓の一覧", () => {
+  it("開催日が全部過ぎるまでは「参加中の卓」に出て、次の開催日の順に並ぶ", async () => {
+    const me = await createCalendar();
+    const id = sid(20);
+    await seedSession({ id, title: "キャンペーン", dates: [day(-7), day(2), day(9)], members: [{ calendarId: me.id, role: "GM" }] });
+    await env.DB.prepare("UPDATE sessions SET confirmed_dates = ?1 WHERE id = ?2")
+      .bind(JSON.stringify([day(-7), day(9)]), id)
+      .run();
+    let body = await (await api("GET", `/api/calendars/${me.id}/sessions`, { secret: me.editSecret })).json<MySessionsResponse>();
+    expect(body.active.map((s) => [s.title, s.confirmedDates])).toEqual([["キャンペーン", [day(-7), day(9)]]]);
+    expect(body.past).toEqual([]);
+
+    // 全部過ぎたら「これまでのセッション」へ
+    await env.DB.prepare("UPDATE sessions SET confirmed_dates = ?1 WHERE id = ?2")
+      .bind(JSON.stringify([day(-7)]), id)
+      .run();
+    body = await (await api("GET", `/api/calendars/${me.id}/sessions`, { secret: me.editSecret })).json<MySessionsResponse>();
+    expect(body.past.map((s) => s.title)).toEqual(["キャンペーン"]);
   });
 });
 

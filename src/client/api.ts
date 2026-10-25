@@ -102,7 +102,7 @@ export const api = {
   patchSession: (
     id: string,
     secret: string,
-    body: { title?: string; candidateDates?: string[]; confirmedDate?: string | null },
+    body: { title?: string; candidateDates?: string[]; confirmedDates?: string[] },
   ) => request<SessionResponse>("PATCH", `/sessions/${id}`, { secret, body }),
 
   deleteSession: (id: string, secret: string) => request<void>("DELETE", `/sessions/${id}`, { secret }),

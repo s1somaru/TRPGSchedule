@@ -46,6 +46,16 @@ export function PencilIcon(props: IconProps) {
   );
 }
 
+/** メモ(吹き出し) */
+export function MemoIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z" />
+      <path d="M8.5 10.5h7M8.5 13.5h4.5" />
+    </Svg>
+  );
+}
+
 /** 戻る(左向きの矢印) */
 export function BackIcon(props: IconProps) {
   return (

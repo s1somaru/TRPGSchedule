@@ -123,22 +123,50 @@ export function DatePicker(props: Props) {
   const setWeekdays = (weekdays: boolean[]) => apply({ ...state, weekdays });
   const toggleWeekday = (i: number) => setWeekdays(state.weekdays.map((on, j) => (j === i ? !on : on)));
 
+  /** 期間を取り消す(1日ずつ足した日は残す) */
+  const clearPeriod = () => {
+    apply({ ...state, period: null, removed: [] });
+    setPicking(null);
+  };
+
   const nextMonth = addMonths(monthStart(props.today), 1);
+  // よく使う期間。選んでいるものをもう一度押すと取り消す
+  const presets = [
+    { label: "今月の残り", ...clamp(props.today, monthEnd(props.today)) },
+    { label: "来月", ...clamp(nextMonth, monthEnd(nextMonth)) },
+    { label: "これから2週間", ...clamp(props.today, addDays(props.today, 13)) },
+  ];
+  const isCurrent = (p: { from: string; to: string }) =>
+    state.period !== null && state.period.from === p.from && state.period.to === p.to;
+  const customPeriod = state.period !== null && !presets.some(isCurrent) ? state.period : null;
+
+  // 曜日の近道。今の組み合わせと同じなら「押されている」。もう一度押すと全部の曜日に戻す
+  const WEEKEND = [true, false, false, false, false, false, true];
+  const WEEKDAYS_ONLY = [false, true, true, true, true, true, false];
+  const sameDays = (a: boolean[]) => a.every((on, i) => on === state.weekdays[i]);
+  const toggleShortcut = (pattern: boolean[]) => setWeekdays(sameDays(pattern) ? ALL_DAYS : pattern);
 
   return (
     <div class="stack picker">
       <div>
         <p class="step-title">1. 期間を選ぶ</p>
         <div class="chips">
-          <button type="button" class="chip" onClick={() => setPeriod(props.today, monthEnd(props.today))}>
-            今月の残り
-          </button>
-          <button type="button" class="chip" onClick={() => setPeriod(nextMonth, monthEnd(nextMonth))}>
-            来月
-          </button>
-          <button type="button" class="chip" onClick={() => setPeriod(props.today, addDays(props.today, 13))}>
-            これから2週間
-          </button>
+          {presets.map((p) => (
+            <button
+              type="button"
+              key={p.label}
+              class="chip"
+              aria-pressed={isCurrent(p)}
+              onClick={() => (isCurrent(p) ? clearPeriod() : setPeriod(p.from, p.to))}
+            >
+              {p.label}
+            </button>
+          ))}
+          {customPeriod && (
+            <button type="button" class="chip" aria-pressed={true} onClick={clearPeriod}>
+              指定した期間({shortDate(customPeriod.from)}〜{shortDate(customPeriod.to)})
+            </button>
+          )}
           <button
             type="button"
             class="chip"
@@ -157,7 +185,7 @@ export function DatePicker(props: Props) {
       {state.period && (
         <div>
           <p class="step-title">
-            2. 曜日でしぼる({shortDate(state.period.from)}〜{shortDate(state.period.to)})
+            1.1 曜日でしぼる({shortDate(state.period.from)}〜{shortDate(state.period.to)})
           </p>
           <div class="chips">
             {state.weekdays.map((on, i) => (
@@ -173,13 +201,18 @@ export function DatePicker(props: Props) {
             ))}
           </div>
           <div class="chips">
-            <button type="button" class="chip" onClick={() => setWeekdays([true, false, false, false, false, false, true])}>
+            <button type="button" class="chip" aria-pressed={sameDays(WEEKEND)} onClick={() => toggleShortcut(WEEKEND)}>
               土日だけ
             </button>
-            <button type="button" class="chip" onClick={() => setWeekdays([false, true, true, true, true, true, false])}>
+            <button
+              type="button"
+              class="chip"
+              aria-pressed={sameDays(WEEKDAYS_ONLY)}
+              onClick={() => toggleShortcut(WEEKDAYS_ONLY)}
+            >
               平日だけ
             </button>
-            <button type="button" class="chip" onClick={() => setWeekdays(ALL_DAYS)}>
+            <button type="button" class="chip" aria-pressed={sameDays(ALL_DAYS)} onClick={() => setWeekdays(ALL_DAYS)}>
               全部の曜日
             </button>
           </div>
@@ -187,7 +220,7 @@ export function DatePicker(props: Props) {
       )}
 
       <div>
-        <p class="step-title">{state.period ? "3. " : "2. "}1日ずつ足す・外す(日をタップ)</p>
+        <p class="step-title">2. 1日ずつ足す・外す(日をタップ)</p>
         <p class="pick-count" role="status">
           候補日:<strong>{selected.length}日</strong>
           {selected.length > 0 && (

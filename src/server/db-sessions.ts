@@ -7,7 +7,7 @@ export interface SessionRow {
   id: string;
   title: string;
   candidate_dates: string;
-  confirmed_date: string | null;
+  confirmed_dates: string;
   archived_at: string | null;
 }
 
@@ -31,7 +31,7 @@ export interface SessionBundle {
 }
 
 const SELECT_SESSION =
-  "SELECT id, title, candidate_dates, confirmed_date, archived_at FROM sessions WHERE id = ?1";
+  "SELECT id, title, candidate_dates, confirmed_dates, archived_at FROM sessions WHERE id = ?1";
 
 const SELECT_PARTICIPANTS = `
   SELECT p.id, p.role, p.joined_at, p.calendar_id, p.display_name_override, p.display_name_snapshot,
@@ -122,7 +122,7 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
     id: session.id,
     title: session.title,
     candidateDates,
-    confirmedDate: session.confirmed_date,
+    confirmedDates: JSON.parse(session.confirmed_dates) as string[],
     archived,
     participants,
     me: mine ? { participantId: mine.id, role: mine.role } : null,
@@ -145,8 +145,8 @@ export async function insertSession(
   await db.batch([
     db
       .prepare(
-        `INSERT INTO sessions (id, title, candidate_dates, confirmed_date, last_date, archived_at, created_at, updated_at)
-         VALUES (?1, ?2, ?3, NULL, ?4, NULL, ?5, ?5)`,
+        `INSERT INTO sessions (id, title, candidate_dates, confirmed_dates, last_date, archived_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, '[]', ?4, NULL, ?5, ?5)`,
       )
       .bind(
         args.id,
@@ -168,15 +168,17 @@ export async function insertSession(
 export async function updateSession(
   db: D1Database,
   id: string,
-  next: { title: string; candidateDates: string[]; confirmedDate: string | null; now: string },
+  next: { title: string; candidateDates: string[]; confirmedDates: string[]; now: string },
 ): Promise<boolean> {
-  const lastDate = next.confirmedDate ?? next.candidateDates[next.candidateDates.length - 1]!;
+  // 記録に切り替える基準の日:開催日があれば一番遅い開催日、なければ最後の候補日
+  const lastDate =
+    next.confirmedDates[next.confirmedDates.length - 1] ?? next.candidateDates[next.candidateDates.length - 1]!;
   const res = await db
     .prepare(
-      `UPDATE sessions SET title = ?1, candidate_dates = ?2, confirmed_date = ?3, last_date = ?4, updated_at = ?5
+      `UPDATE sessions SET title = ?1, candidate_dates = ?2, confirmed_dates = ?3, last_date = ?4, updated_at = ?5
        WHERE id = ?6 AND archived_at IS NULL`,
     )
-    .bind(next.title, JSON.stringify(next.candidateDates), next.confirmedDate, lastDate, next.now, id)
+    .bind(next.title, JSON.stringify(next.candidateDates), JSON.stringify(next.confirmedDates), lastDate, next.now, id)
     .run();
   return res.meta.changes > 0;
 }

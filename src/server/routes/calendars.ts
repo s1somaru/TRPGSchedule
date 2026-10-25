@@ -132,12 +132,15 @@ calendars.get("/:id/sessions", rateLimit("RL_READ"), async (c) => {
   const past: PastSessionSummary[] = [];
   for (const row of rows) {
     const dates = JSON.parse(row.candidate_dates) as string[];
-    if (row.confirmed_date && row.confirmed_date < today) {
+    const confirmed = JSON.parse(row.confirmed_dates) as string[];
+    const lastConfirmed = confirmed[confirmed.length - 1];
+    if (lastConfirmed && lastConfirmed < today) {
+      // 開催日が全部過ぎた卓は「これまでのセッション」
       past.push({
         id: row.id,
         title: row.title,
         role: row.role,
-        confirmedDate: row.confirmed_date,
+        confirmedDates: confirmed,
         archived: row.archived_at !== null,
       });
     } else if (row.archived_at === null) {
@@ -145,16 +148,18 @@ calendars.get("/:id/sessions", rateLimit("RL_READ"), async (c) => {
         id: row.id,
         title: row.title,
         role: row.role,
-        confirmedDate: row.confirmed_date,
+        confirmedDates: confirmed,
         firstCandidateDate: dates[0]!,
         lastCandidateDate: dates[dates.length - 1]!,
-        sortKey: row.confirmed_date ?? dates[0]!,
+        // 並び順:次の開催日(なければ最初の候補日)が近い順
+        sortKey: confirmed.find((d) => d >= today) ?? dates[0]!,
       });
     }
     // 記録になったが確定しなかった卓は、どちらにも出さない
   }
   active.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-  past.sort((a, b) => b.confirmedDate.localeCompare(a.confirmedDate));
+  // 新しい順(最後の開催日で比べる)
+  past.sort((a, b) => b.confirmedDates.at(-1)!.localeCompare(a.confirmedDates.at(-1)!));
 
   const body: MySessionsResponse = {
     active: active.map(({ sortKey: _, ...rest }) => rest),
