@@ -140,8 +140,20 @@ describe("卓の取得", () => {
     const { gm, s } = await setup();
     const pl2 = await createCalendar("PL2");
     const p2 = await joined(s.id, pl2);
+    const pl3 = await createCalendar("PL3");
+    await joined(s.id, pl3);
+    // 参加した時刻が同じミリ秒になると順番が決まらないので、参加した順に1秒ずつ違う時刻にしておく
+    const names = ["GM", "PL", "PL2", "PL3"];
+    for (const [i, name] of names.entries()) {
+      await env.DB.prepare(
+        `UPDATE participations SET joined_at = ?1
+         WHERE session_id = ?2 AND calendar_id = (SELECT id FROM calendars WHERE id = participations.calendar_id AND display_name = ?3)`,
+      )
+        .bind(new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(), s.id, name)
+        .run();
+    }
     await api("PATCH", `/api/sessions/${s.id}/participants/${p2.id}`, { secret: gm.editSecret, body: { role: "GM" } });
-    expect((await getSession(s.id)).participants.map((p) => p.displayName)).toEqual(["GM", "PL2", "PL"]);
+    expect((await getSession(s.id)).participants.map((p) => p.displayName)).toEqual(["GM", "PL2", "PL", "PL3"]);
   });
 });
 

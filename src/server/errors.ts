@@ -62,12 +62,20 @@ export function handleError(err: unknown, c: Context): Response {
       err.status,
     );
   }
-  // ログには場所(ID を含まない形)とエラーの種類だけを残す。ボディや秘密は出さない
+  // ログには場所(ID を含まない形)とエラーの種類だけを残す。ボディや秘密は出さない。
+  // エラーの文は原因を調べるために残すが、秘密やIDの形をした文字列は伏せ字にしてから出す
   const name = err instanceof Error ? err.name : "UnknownError";
-  const message = err instanceof Error ? err.message.slice(0, 200) : "";
+  const message = err instanceof Error ? redact(err.message).slice(0, 200) : "";
   console.error(JSON.stringify({ code: "INTERNAL_ERROR", route: c.req.routePath, name, message }));
   return c.json(
     { error: { code: "INTERNAL_ERROR", message: "サーバーで問題が起きました。時間をおいてお試しください" } },
     500,
   );
+}
+
+/** ログに出す前に、秘密・トークン・ID の形をした文字列を伏せ字にする */
+export function redact(text: string): string {
+  return text
+    .replace(/\b(sec|shr|cal|ses|prt|fdb)_[A-Za-z0-9_-]+/g, "$1_***")
+    .replace(/Bearer\s+\S+/gi, "Bearer ***");
 }

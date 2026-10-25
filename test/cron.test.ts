@@ -96,12 +96,19 @@ describe("記録への切り替え", () => {
 
   it("1日にくり返す回数の上限で止まる(残りは次の日)", async () => {
     const gm = await createCalendar();
+    const ids: string[] = [];
+    // ほかのテストの卓より古い日にして、この5件が先に選ばれるようにする(最後の日が古い順に処理する)
     for (let i = 0; i < 5; i++) {
-      await seedSession({ lastDate: addDays(today, -300 - i), members: [{ calendarId: gm.id, role: "GM" }] });
+      ids.push(await seedSession({ lastDate: addDays(today, -1000 - i), members: [{ calendarId: gm.id, role: "GM" }] }));
     }
-    // ほかのテストで作った卓も残っているので、件数ではなく「上限どおりか」を見る
     const r = await runDailyCleanup(env.DB, NOW, { batchSize: 2, maxRounds: 1 });
-    expect(r.archivedSessions).toBeLessThanOrEqual(2);
+    expect(r.archivedSessions).toBe(2);
+    // 一番古い2件(-1004 と -1003)だけが記録になり、残りの3件はそのまま
+    const states = await Promise.all(ids.map(async (id) => (await archivedAt(id)) !== null));
+    expect(states).toEqual([false, false, false, true, true]);
+    // 次の日に残りが処理される
+    await runDailyCleanup(env.DB, NOW, { batchSize: 2, maxRounds: 10 });
+    for (const id of ids) expect(await archivedAt(id)).not.toBeNull();
   });
 });
 
