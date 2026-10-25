@@ -1,0 +1,28 @@
+{
+  "name": "trpg-schedule",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build && wrangler dev",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json",
+    "test": "vite build && vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply trpg-schedule --local",
+    "deploy": "vite build && wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "4.13.13",
+    "preact": "11.0.1",
+    "qrcode-generator": "2.0.4",
+    "valibot": "1.5.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.0",
+    "@preact/preset-vite": "2.10.6",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "4.1.12",
+    "wrangler": "4.149.0"
+  }
+}

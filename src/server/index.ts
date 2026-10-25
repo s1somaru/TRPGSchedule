@@ -1,0 +1,18 @@
+// Worker の入口。/api だけがここに届く(画面のファイルは Cloudflare が直接返す)
+import { Hono } from "hono";
+import { Errors, handleError } from "./errors";
+import { calendars } from "./routes/calendars";
+import { securityHeaders, sizeLimit, writeGuard } from "./security";
+import type { AppEnv } from "./types";
+
+const app = new Hono<AppEnv>();
+
+app.use("/api/*", securityHeaders, writeGuard, sizeLimit);
+app.route("/api/calendars", calendars);
+
+app.notFound((c) => handleError(Errors.notFound(), c));
+app.onError(handleError);
+
+export default {
+  fetch: app.fetch,
+} satisfies ExportedHandler<Env>;
