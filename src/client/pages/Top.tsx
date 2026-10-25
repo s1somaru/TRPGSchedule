@@ -41,27 +41,43 @@ export function Top() {
 function Home(props: { onCreate: () => void }) {
   const [calendars, setCalendars] = useState(storage.calendars());
   const [sessions, setSessions] = useState(storage.sessions());
+  const mine = calendars[0];
 
   const clearHistory = () => {
-    if (!confirm("この端末に覚えている履歴を消しますか?\n(カレンダーや卓そのものは消えません。編集URLを保存していないと、開けなくなります)")) return;
+    const message =
+      "この端末に覚えている履歴を消しますか?" +
+      "(カレンダーや卓そのものは消えません。編集URLを保存していないと、開けなくなります)";
+    if (!confirm(message)) return;
     storage.clear();
     setCalendars([]);
     setSessions([]);
   };
 
   return (
-    <main class="page">
-      <h1>TRPGスケジュール</h1>
-      <p class="lead">予定は1回入れるだけ。参加している卓ぜんぶに反映されます。</p>
-
-      <button type="button" class="btn btn-primary btn-block btn-big" onClick={props.onCreate}>
-        カレンダーを作る
-      </button>
+    <main class="page page-wide">
+      <section class="hero">
+        <h1>予定は1回入れるだけ。</h1>
+        <p class="hero-lead">参加している卓ぜんぶに、あなたの予定が反映されます。ログインは要りません。</p>
+        <div class="hero-actions">
+          {mine ? (
+            <Link href={`/c/${mine.id}#${mine.secret}`} class="btn btn-primary btn-big">
+              自分のカレンダーを開く
+            </Link>
+          ) : (
+            <button type="button" class="btn btn-primary btn-big" onClick={props.onCreate}>
+              カレンダーを作る
+            </button>
+          )}
+          <Link href="/new" class="btn btn-big">
+            卓を作る(GM)
+          </Link>
+        </div>
+      </section>
 
       {(calendars.length > 0 || sessions.length > 0) && (
-        <>
+        <section class="recent">
           <h2>最近開いたもの</h2>
-          <div class="stack">
+          <div class="recent-grid">
             {calendars.length > 0 && (
               <ul class="list" aria-label="カレンダー">
                 {calendars.map((c) => (
@@ -98,8 +114,34 @@ function Home(props: { onCreate: () => void }) {
               この端末の履歴を消す
             </button>
           </p>
-        </>
+        </section>
       )}
+
+      <section class="steps" aria-label="使い方">
+        <h2>使い方</h2>
+        <ol class="step-list">
+          <li class="step-card">
+            <span class="step-no">1</span>
+            <h3>カレンダーを作る</h3>
+            <p>名前を入れるだけ。できた編集URLは、パスワードと同じなので大切に保存します。</p>
+          </li>
+          <li class="step-card">
+            <span class="step-no">2</span>
+            <h3>予定を ◯△× で入れる</h3>
+            <p>半年先まで、日ごとに入れられます。長押ししてなぞると、まとめて付けられます。</p>
+          </li>
+          <li class="step-card">
+            <span class="step-no">3</span>
+            <h3>卓URLから参加する</h3>
+            <p>GMから届いた卓URLを開いて参加。あとは自分のカレンダーを変えるだけで、卓にも反映されます。</p>
+          </li>
+        </ol>
+        {!mine && (
+          <button type="button" class="btn btn-primary btn-block btn-big steps-cta" onClick={props.onCreate}>
+            カレンダーを作る
+          </button>
+        )}
+      </section>
     </main>
   );
 }

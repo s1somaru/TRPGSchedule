@@ -71,7 +71,7 @@ export function NewSession() {
   const ready = titleLength > 0 && titleLength <= LIMITS.title && dates.length > 0;
 
   return (
-    <main class="page">
+    <main class="page page-wide">
       <h1>卓を作る</h1>
       <form class="stack" onSubmit={submit}>
         {calendars.length > 1 ? (

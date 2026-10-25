@@ -2,6 +2,7 @@
 import { render } from "preact";
 import { useEffect } from "preact/hooks";
 import { ID_PATTERNS } from "../shared/ids";
+import { Header } from "./components/Header";
 import { NewSession } from "./pages/NewSession";
 import { MyCalendar } from "./pages/MyCalendar";
 import { SessionPage } from "./pages/SessionPage";
@@ -25,10 +26,18 @@ function App() {
     if (!known) navigate("/", { replace: true });
   }, [known]);
 
-  if (path === "/new") return <NewSession />;
-  if (calendar && known) return <MyCalendar key={calendar} id={calendar} />;
-  if (session && known) return <SessionPage key={session} id={session} />;
-  return <Top key={path} />;
+  let page;
+  if (path === "/new") page = <NewSession />;
+  else if (calendar && known) page = <MyCalendar key={calendar} id={calendar} />;
+  else if (session && known) page = <SessionPage key={session} id={session} />;
+  else page = <Top key={path} />;
+
+  return (
+    <>
+      <Header path={path} />
+      {page}
+    </>
+  );
 }
 
 const root = document.getElementById("app");

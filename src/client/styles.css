@@ -983,3 +983,353 @@ section > .btn-block + .btn-block,
 section > .list + .muted + .btn-block {
   margin-top: 12px;
 }
+
+/* ===================================================================
+   ヘッダ・広い画面向けのレイアウト
+   =================================================================== */
+
+:root {
+  --accent-strong: #2c46b8;
+  --header-bg: rgb(255 255 255 / 0.85);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-strong: #5a74e6;
+    --header-bg: rgb(32 35 39 / 0.85);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+  }
+}
+
+body {
+  background:
+    radial-gradient(1200px 400px at 100% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+.card,
+.list,
+.table-wrap {
+  box-shadow: var(--shadow);
+}
+
+/* ---- ヘッダ ---- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--header-bg);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.site-header-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 1.05rem;
+  min-height: 44px;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.nav-link:hover {
+  background: var(--x-bg);
+}
+
+.nav-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.nav-primary:hover {
+  background: var(--accent-strong);
+}
+
+/* スマホでは名前を短く見せる */
+@media (max-width: 420px) {
+  .brand-name {
+    font-size: 0.9rem;
+  }
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+/* ---- 広いページ ---- */
+.page-wide {
+  max-width: 1080px;
+}
+
+/* ---- トップ ---- */
+.hero {
+  padding: 28px 0 8px;
+}
+
+.hero h1 {
+  font-size: clamp(1.7rem, 5vw, 2.6rem);
+  margin: 0 0 8px;
+  letter-spacing: 0.01em;
+}
+
+.hero-lead {
+  color: var(--muted);
+  font-size: 1.05rem;
+  margin: 0 0 20px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hero-actions .btn {
+  flex: 1 1 220px;
+}
+
+@media (min-width: 760px) {
+  .hero-actions .btn {
+    max-width: 320px;
+  }
+}
+
+.recent-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.step-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+.step-card h3 {
+  margin: 4px 0 6px;
+  font-size: 1.05rem;
+}
+
+.step-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.step-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 800;
+}
+
+.steps-cta {
+  margin-top: 16px;
+}
+
+/* ---- 卓ページから来たときの「戻る」 ---- */
+.return-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+
+.return-bar:hover {
+  background: var(--accent-strong);
+}
+
+/* ---- 入力ペンのアイコン ---- */
+.pen .sym {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.6rem;
+}
+
+/* ---- ダイアログ:中身はスクロールし、下の欄(保存など)は常に見える ---- */
+.sheet {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sheet-body {
+  overflow: auto;
+  padding: 20px 16px 24px;
+}
+
+.sheet-footer {
+  flex: none;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.sheet-wide {
+  max-width: 560px;
+}
+
+/* ---- 卓ページの表の操作 ---- */
+.table-tools {
+  margin-top: 12px;
+}
+
+.table-more {
+  margin-top: 8px;
+}
+
+.table-more .btn {
+  flex: 0 1 auto;
+}
+
+.empty-note {
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+/* ---- 月のカレンダー ---- */
+.months {
+  display: grid;
+  gap: 0 24px;
+}
+
+/* ===================================================================
+   PC など広い画面
+   =================================================================== */
+@media (min-width: 760px) {
+  .recent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .step-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* 月を横に並べる */
+  .months {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-wide {
+    max-width: 760px;
+  }
+
+  .sheet {
+    max-width: 600px;
+  }
+
+  .sheet.sheet-wide {
+    max-width: 760px;
+  }
+}
+
+@media (min-width: 1000px) {
+  /* 自分のカレンダー:左にカレンダー、右に参加中の卓 */
+  .cal-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .cal-side {
+    position: sticky;
+    top: 72px;
+  }
+
+  .cal-side h2:first-child {
+    margin-top: 20px;
+  }
+
+  /* 入力ペンは、カレンダーの幅に合わせて下に置く */
+  .pen-bar .inner {
+    max-width: 640px;
+  }
+
+  .cal-page .months {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* 卓を作る:月を3つ並べる */
+  .picker .months {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sheet.sheet-wide {
+    max-width: 960px;
+  }
+
+  .sheet-wide .picker .months {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 760px) {
+  .steps-cta {
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}

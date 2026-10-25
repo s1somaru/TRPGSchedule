@@ -106,7 +106,8 @@ export function useAutosave(opts: {
     return () => {
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onPageHide);
-      if (timer.current) clearTimeout(timer.current);
+      // アプリの中で別の画面へ移るとき(「卓に戻る」など)も、まだ送っていない分を送る
+      void flush(true);
     };
   }, []);
 

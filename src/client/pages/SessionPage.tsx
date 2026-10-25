@@ -181,7 +181,7 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
 
   return (
     <>
-      <main class="page">
+      <main class="page page-wide">
         <h1>{session.title}</h1>
 
         {session.confirmedDate && (
@@ -206,7 +206,7 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
           <div class="alert alert-notice">管理するGMがいません。この卓の内容は変えられませんが、予定は見られます。</div>
         )}
 
-        <SessionTable session={session} today={today} onDateTap={(date) => setPanel({ kind: "day", date })} />
+        <ScheduleSection session={session} today={today} onDateTap={(date) => setPanel({ kind: "day", date })} />
         <p class="muted">日付を押すと、その日のメモが見られます。{isGm ? "開催日もそこで決められます。" : ""}</p>
 
         {actionError && (
@@ -223,7 +223,11 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
           )}
           {me && viewer && (
             <>
-              <Link href={`/c/${viewer.id}#${viewer.secret}`} class="btn btn-primary btn-block">
+              <Link
+                href={`/c/${viewer.id}#${viewer.secret}`}
+                state={{ returnTo: { sessionId: session.id, title: session.title } }}
+                class="btn btn-primary btn-block"
+              >
                 自分の予定を変える
               </Link>
               <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "rename" })}>
@@ -327,6 +331,68 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
         />
       )}
     </>
+  );
+}
+
+/** 最初に出す候補日の数(これからの日) */
+const FIRST_ROWS = 10;
+
+/**
+ * 候補日の表。候補日が多いと縦に長くなるので:
+ * - これからの日は最初の10日だけ出し、残りは「残り○日を表示」で開く
+ * - 過ぎた候補日は畳んでおく
+ * - 「開催できる日だけ」に絞れる
+ */
+function ScheduleSection(props: { session: SessionResponse; today: string; onDateTap: (date: string) => void }) {
+  const { session, today } = props;
+  const [onlyOk, setOnlyOk] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [showPast, setShowPast] = useState(false);
+
+  const upcomingAll = session.candidateDates.filter((d) => d >= today);
+  const upcoming = onlyOk
+    ? upcomingAll.filter((d) => judgeDate(session.participants, d).judgement === "ok")
+    : upcomingAll;
+  const past = session.candidateDates.filter((d) => d < today);
+  const visible = showAll ? upcoming : upcoming.slice(0, FIRST_ROWS);
+  const hidden = upcoming.length - visible.length;
+  const rows = showPast ? [...visible, ...past] : visible;
+
+  return (
+    <section>
+      <div class="chips table-tools">
+        <button type="button" class="chip" aria-pressed={!onlyOk} onClick={() => setOnlyOk(false)}>
+          すべての候補日({upcomingAll.length})
+        </button>
+        <button type="button" class="chip" aria-pressed={onlyOk} onClick={() => setOnlyOk(true)}>
+          開催できる日だけ
+        </button>
+      </div>
+      {rows.length > 0 ? (
+        <SessionTable session={session} today={today} dates={rows} onDateTap={props.onDateTap} />
+      ) : (
+        <p class="muted empty-note">
+          {onlyOk ? "GM全員が ◯ か △ の日は、まだありません。" : "これからの候補日はありません。"}
+        </p>
+      )}
+      <div class="btn-row table-more">
+        {hidden > 0 && (
+          <button type="button" class="btn" onClick={() => setShowAll(true)}>
+            残り{hidden}日を表示
+          </button>
+        )}
+        {showAll && upcoming.length > FIRST_ROWS && (
+          <button type="button" class="btn" onClick={() => setShowAll(false)}>
+            最初の{FIRST_ROWS}日だけにする
+          </button>
+        )}
+        {past.length > 0 && (
+          <button type="button" class="btn" onClick={() => setShowPast(!showPast)}>
+            {showPast ? "過ぎた候補日を隠す" : `過ぎた候補日(${past.length})を表示`}
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -465,7 +531,26 @@ function EditSheet(props: {
   };
 
   return (
-    <Sheet title="タイトル・候補日を変える" onClose={props.onClose}>
+    <Sheet
+      title="タイトル・候補日を変える"
+      onClose={props.onClose}
+      wide
+      footer={
+        <div class="btn-row">
+          <button
+            type="button"
+            class="btn btn-primary"
+            disabled={busy || dates.length === 0 || titleLength === 0 || titleLength > LIMITS.title}
+            onClick={save}
+          >
+            保存する(候補日 {dates.length}日)
+          </button>
+          <button type="button" class="btn" onClick={props.onClose}>
+            やめる
+          </button>
+        </div>
+      }
+    >
       <div class="stack">
         <label class="field">
           <span>卓のタイトル</span>
@@ -483,19 +568,6 @@ function EditSheet(props: {
             {error}
           </p>
         )}
-        <div class="btn-row">
-          <button
-            type="button"
-            class="btn btn-primary"
-            disabled={busy || dates.length === 0 || titleLength === 0 || titleLength > LIMITS.title}
-            onClick={save}
-          >
-            保存する
-          </button>
-          <button type="button" class="btn" onClick={props.onClose}>
-            やめる
-          </button>
-        </div>
       </div>
     </Sheet>
   );

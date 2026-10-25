@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import { jstNow } from "../../shared/dates";
 import { ID_PATTERNS, newSecret } from "../../shared/ids";
 import { LIMITS } from "../../shared/limits";
+import type { JSX } from "preact";
 import type { CalendarResponse, DayEntry, MySessionsResponse, Status } from "../../shared/types";
 import { api, ApiClientError } from "../api";
 import { CalendarGrid } from "../components/CalendarGrid";
@@ -10,7 +11,8 @@ import { MemoEditor } from "../components/MemoEditor";
 import { SaveUrl } from "../components/SaveUrl";
 import { Sheet } from "../components/Sheet";
 import { graphemeLength, relativeTime, shortDate, STATUS_SYMBOL } from "../format";
-import { Link, navigate } from "../router";
+import { BackIcon, EraserIcon, PencilIcon } from "../components/Icons";
+import { Link, navigate, navState } from "../router";
 import { editUrl, storage } from "../storage";
 import { useAutosave } from "../useAutosave";
 
@@ -167,6 +169,8 @@ function Editor(props: {
   const [panel, setPanel] = useState<Panel>({ kind: "none" });
   const [sessions, setSessions] = useState<MySessionsResponse | null>(null);
   const today = jstNow().today;
+  // 卓ページの「自分の予定を変える」から来たときの戻り先
+  const returnTo = navState().returnTo;
 
   const save = useAutosave({
     calendarId: id,
@@ -197,7 +201,15 @@ function Editor(props: {
 
   return (
     <>
-      <main class="page">
+      <main class="page page-wide cal-page">
+        {returnTo && (
+          <Link href={`/s/${returnTo.sessionId}`} class="return-bar">
+            <BackIcon />
+            <span>
+              「{returnTo.title}」の卓に戻る
+            </span>
+          </Link>
+        )}
         <div class="alert alert-notice">
           このページのURLは人に送らないでください。卓に誘うときは、卓ページの「卓URLをコピー」を使います。
         </div>
@@ -218,24 +230,30 @@ function Editor(props: {
           </button>
         </p>
 
-        <SaveIndicator state={save.state} onRetry={save.retry} />
-        {save.notice && <p class="muted">{save.notice}</p>}
+        <div class="cal-layout">
+          <div class="cal-main">
+            <SaveIndicator state={save.state} onRetry={save.retry} />
+            {save.notice && <p class="muted">{save.notice}</p>}
 
-        <CalendarGrid
-          availability={save.entries}
-          range={cal.inputRange}
-          today={today}
-          canPaint={pen !== "memo"}
-          onTap={onTap}
-          onPaint={applyPen}
-        />
+            <CalendarGrid
+              availability={save.entries}
+              range={cal.inputRange}
+              today={today}
+              canPaint={pen !== "memo"}
+              onTap={onTap}
+              onPaint={applyPen}
+            />
+          </div>
 
-        <SessionsSection sessions={sessions} />
+          <aside class="cal-side">
+            <SessionsSection sessions={sessions} />
 
-        <h2>卓を作る</h2>
-        <Link href="/new" class="btn btn-block">
-          この予定で卓を作る
-        </Link>
+            <h2>卓を作る</h2>
+            <Link href="/new" class="btn btn-block">
+              この予定で卓を作る
+            </Link>
+          </aside>
+        </div>
       </main>
 
       <PenBar pen={pen} onChange={setPen} />
@@ -322,12 +340,12 @@ function SaveIndicator(props: { state: string; onRetry: () => void }) {
   );
 }
 
-const PENS: { pen: Pen; sym: string; label: string }[] = [
+const PENS: { pen: Pen; sym: string | JSX.Element; label: string }[] = [
   { pen: "o", sym: STATUS_SYMBOL.o, label: "参加できる" },
   { pen: "t", sym: STATUS_SYMBOL.t, label: "たぶん" },
   { pen: "x", sym: STATUS_SYMBOL.x, label: "できない" },
-  { pen: "erase", sym: "消", label: "消す" },
-  { pen: "memo", sym: "✎", label: "メモ" },
+  { pen: "erase", sym: <EraserIcon size={24} />, label: "消す" },
+  { pen: "memo", sym: <PencilIcon size={22} />, label: "メモ" },
 ];
 
 function PenBar(props: { pen: Pen; onChange: (pen: Pen) => void }) {

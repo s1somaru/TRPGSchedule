@@ -237,7 +237,7 @@ function PickerGrid(props: {
   const selected = new Set(props.selected);
 
   return (
-    <div>
+    <div class="months">
       {months.map(({ year, month }) => {
         const first = `${year}-${pad(month)}-01`;
         const days = new Date(Date.UTC(year, month, 0)).getUTCDate();

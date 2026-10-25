@@ -129,6 +129,7 @@ export function CalendarGrid(props: Props) {
   return (
     <div
       ref={containerRef}
+      class="months"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

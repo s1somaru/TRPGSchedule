@@ -4,16 +4,11 @@ import { judgeDate } from "../../shared/judge";
 import type { SessionResponse } from "../../shared/types";
 import { dateLabel, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 
-/** 表に並べる順:これからの日を先に、過ぎた日は下にまとめる */
-export function orderedDates(candidateDates: string[], today: string): string[] {
-  const upcoming = candidateDates.filter((d) => d >= today);
-  const past = candidateDates.filter((d) => d < today);
-  return [...upcoming, ...past];
-}
-
 export function SessionTable(props: {
   session: SessionResponse;
   today: string;
+  /** 表に出す日(並び順もこのとおり) */
+  dates: string[];
   onDateTap: (date: string) => void;
 }) {
   const { session, today } = props;
@@ -39,7 +34,7 @@ export function SessionTable(props: {
           </tr>
         </thead>
         <tbody>
-          {orderedDates(session.candidateDates, today).map((date) => {
+          {props.dates.map((date) => {
             const sum = judgeDate(people, date);
             const wd = weekdayOf(date);
             const classes = [
