@@ -437,3 +437,40 @@ describe("セキュリティの共通処理", () => {
     expect(statuses.at(-1)).toBe(429);
   });
 });
+
+describe("回数制限(書き込み・共有トークン)", () => {
+  it("共有トークンは同じ接続元から1分に10回まで", async () => {
+    const cal = await createCalendar();
+    const ip = freshIp();
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) {
+      statuses.push((await api("POST", `/api/calendars/${cal.id}/share-tokens`, { secret: cal.editSecret, ip })).status);
+    }
+    expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
+  it("書き込みは同じ接続元から1分に60回まで", async () => {
+    const cal = await createCalendar();
+    const ip = freshIp();
+    const statuses: number[] = [];
+    for (let i = 0; i < 61; i++) {
+      const res = await api("PUT", `/api/calendars/${cal.id}/availability`, {
+        secret: cal.editSecret,
+        ip,
+        body: { availability: { [day(1)]: { s: "o" } } },
+      });
+      statuses.push(res.status);
+    }
+    expect(statuses.slice(0, 60).every((s) => s === 200)).toBe(true);
+    expect(statuses[60]).toBe(429);
+  });
+
+  it("読み取りには回数制限をかけない", async () => {
+    const cal = await createCalendar();
+    const ip = freshIp();
+    for (let i = 0; i < 70; i++) {
+      expect((await api("GET", `/api/calendars/${cal.id}`, { secret: cal.editSecret, ip })).status).toBe(200);
+    }
+  });
+});

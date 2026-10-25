@@ -114,11 +114,12 @@ export async function deleteCalendar(
   id: string,
 ): Promise<{ deleted: true } | { deleted: false; soleGmOf: { id: string; title: string }[] }> {
   const [, deleted] = await db.batch([
-    // 卓に名前が残るよう、先に書き写しておく(消さなかった場合も害はない)
+    // 卓に名前が残るよう、先に書き写しておく(消さなかった場合も害はない)。
+    // 記録の卓にすでに書き写してある名前(卓ごとの名前など)は、上書きしない
     db
       .prepare(
         `UPDATE participations
-         SET display_name_snapshot = (SELECT display_name FROM calendars WHERE id = ?1)
+         SET display_name_snapshot = COALESCE(display_name_snapshot, (SELECT display_name FROM calendars WHERE id = ?1))
          WHERE calendar_id = ?1`,
       )
       .bind(id),

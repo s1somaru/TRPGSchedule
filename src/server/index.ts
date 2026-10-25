@@ -1,5 +1,6 @@
 // Worker の入口。/api だけがここに届く(画面のファイルは Cloudflare が直接返す)
 import { Hono } from "hono";
+import { runDailyCleanup } from "./cron";
 import { Errors, handleError } from "./errors";
 import { calendars } from "./routes/calendars";
 import { sessions } from "./routes/sessions";
@@ -17,4 +18,8 @@ app.onError(handleError);
 
 export default {
   fetch: app.fetch,
+  // 毎日1回の定期処理(wrangler.jsonc の triggers で時刻を決める)
+  scheduled(controller, env, ctx) {
+    ctx.waitUntil(runDailyCleanup(env.DB, new Date(controller.scheduledTime)));
+  },
 } satisfies ExportedHandler<Env>;
