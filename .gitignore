@@ -1,0 +1,18 @@
+# 内部用の設計資料(GitHubには上げない)
+spec.md
+design-v2.md
+
+# 依存パッケージ・ビルド結果
+node_modules/
+dist/
+
+# Wrangler(Cloudflare)の作業用ファイルと、手元用の秘密の設定
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# エディタ・OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
