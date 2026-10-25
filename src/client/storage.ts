@@ -2,7 +2,7 @@
 // ブックマークのような便利機能で、本人確認ではない。読めない・書けない環境でも画面は動くようにする
 import { ID_PATTERNS } from "../shared/ids";
 
-const KEY = "trpg-schedule:v1";
+const KEY = "takuyose:v1";
 const MAX_ITEMS = 20;
 
 export interface StoredCalendar {

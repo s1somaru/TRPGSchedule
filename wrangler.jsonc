@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "trpg-schedule",
+  "name": "takuyose",
   "main": "src/server/index.ts",
   "compatibility_date": "2026-10-01",
 
@@ -15,7 +15,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "trpg-schedule",
+      "database_name": "takuyose",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }

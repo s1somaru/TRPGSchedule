@@ -3,7 +3,7 @@ import { Link } from "../router";
 import { storage } from "../storage";
 import { LogoMark } from "./Icons";
 
-export const APP_NAME = "TRPGスケジュール";
+export const APP_NAME = "たくよせ";
 
 export function Header(props: { path: string }) {
   // この端末で一番最近開いたカレンダー(1人1つの前提で、それを「自分のカレンダー」とする)

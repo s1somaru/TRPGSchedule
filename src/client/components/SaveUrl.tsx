@@ -36,7 +36,7 @@ export function SaveUrl(props: {
 
   const share = async () => {
     try {
-      await navigator.share({ title: "TRPGスケジュールの編集URL", url: props.url });
+      await navigator.share({ title: "たくよせの編集URL", url: props.url });
     } catch {
       // 共有をやめた場合など。何もしない
     }

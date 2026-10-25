@@ -1,5 +1,5 @@
 {
-  "name": "trpg-schedule",
+  "name": "takuyose",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,11 +8,12 @@
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json",
     "test": "vite build && vitest run",
-    "db:migrate:local": "wrangler d1 migrations apply trpg-schedule --local",
+    "db:migrate:local": "wrangler d1 migrations apply takuyose --local",
     "deploy": "vite build && wrangler deploy",
-    "db:migrate:remote": "wrangler d1 migrations apply trpg-schedule --remote",
-    "feedback": "wrangler d1 execute trpg-schedule --remote --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\"",
-    "feedback:local": "wrangler d1 execute trpg-schedule --local --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\""
+    "db:migrate:remote": "wrangler d1 migrations apply takuyose --remote",
+    "feedback": "wrangler d1 execute takuyose --remote --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\"",
+    "feedback:local": "wrangler d1 execute takuyose --local --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\"",
+    "feedback:export": "node -e \"require('fs').mkdirSync('backups',{recursive:true})\" && wrangler d1 export takuyose --remote --table feedback --output backups/feedback.sql"
   },
   "dependencies": {
     "hono": "4.13.13",

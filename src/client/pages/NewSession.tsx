@@ -10,7 +10,7 @@ import { Link, navigate } from "../router";
 import { storage } from "../storage";
 
 /** 作った直後の卓ページで「卓URLをコピー」を目立たせるための印 */
-export const JUST_CREATED_KEY = "trpg-schedule:just-created";
+export const JUST_CREATED_KEY = "takuyose:just-created";
 
 export function NewSession() {
   const calendars = storage.calendars();

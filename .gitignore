@@ -19,3 +19,6 @@ Thumbs.db
 
 # Claude Code の手元用の設定
 .claude/
+
+# フィードバックの控え(返信先などの個人情報が入るので GitHub には上げない)
+backups/

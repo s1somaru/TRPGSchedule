@@ -92,20 +92,29 @@ describe("問い合わせ", () => {
   });
 });
 
-describe("古い問い合わせ・評価の削除", () => {
-  it("1年たったものは毎日の定期処理で消える", async () => {
+describe("古い問い合わせの返信先の削除", () => {
+  it("1年たったものは返信先だけが消え、内容と評価は残る", async () => {
     const now = new Date("2027-12-01T00:00:00Z");
+    const old = new Date(now.getTime() - 366 * 864e5).toISOString();
+    const recent = new Date(now.getTime() - 10 * 864e5).toISOString();
     await env.DB.batch([
-      env.DB.prepare("INSERT INTO feedback (id, kind, rating, message, created_at) VALUES ('fdb_old', 'rating', 5, '', ?1)").bind(
-        new Date(now.getTime() - 366 * 864e5).toISOString(),
-      ),
-      env.DB.prepare("INSERT INTO feedback (id, kind, rating, message, created_at) VALUES ('fdb_new', 'rating', 5, '', ?1)").bind(
-        new Date(now.getTime() - 10 * 864e5).toISOString(),
-      ),
+      env.DB.prepare(
+        "INSERT INTO feedback (id, kind, category, message, contact, created_at) VALUES ('fdb_old', 'contact', 'bug', '古い問い合わせ', 'old@example.com', ?1)",
+      ).bind(old),
+      env.DB.prepare(
+        "INSERT INTO feedback (id, kind, category, message, contact, created_at) VALUES ('fdb_new', 'contact', 'bug', '新しい問い合わせ', 'new@example.com', ?1)",
+      ).bind(recent),
+      env.DB.prepare("INSERT INTO feedback (id, kind, rating, message, created_at) VALUES ('fdb_rate', 'rating', 4, 'よい', ?1)").bind(old),
     ]);
     const r = await runDailyCleanup(env.DB, now);
-    expect(r.deletedFeedback).toBeGreaterThanOrEqual(1);
-    const left = await env.DB.prepare("SELECT id FROM feedback WHERE id IN ('fdb_old', 'fdb_new')").all<{ id: string }>();
-    expect(left.results.map((x) => x.id)).toEqual(["fdb_new"]);
+    expect(r.anonymizedFeedback).toBeGreaterThanOrEqual(1);
+    const { results } = await env.DB.prepare(
+      "SELECT id, message, contact, rating FROM feedback WHERE id IN ('fdb_old', 'fdb_new', 'fdb_rate') ORDER BY id",
+    ).all();
+    expect(results).toEqual([
+      { id: "fdb_new", message: "新しい問い合わせ", contact: "new@example.com", rating: null },
+      { id: "fdb_old", message: "古い問い合わせ", contact: null, rating: null },
+      { id: "fdb_rate", message: "よい", contact: null, rating: 4 },
+    ]);
   });
 });
