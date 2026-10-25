@@ -1,21 +1,18 @@
 // 個人カレンダーの API(spec.md 5.5)
 import { Hono } from "hono";
 import { acceptedRange, jstNow } from "../../shared/dates";
-import { ID_PATTERNS, newCalendarId, newSecret, newShareToken } from "../../shared/ids";
+import { ID_PATTERNS, newCalendarId, newSecret } from "../../shared/ids";
 import {
   AvailabilityUpdate,
   CreateCalendar,
-  CreateShareToken,
   PatchCalendar,
   ReissueSecret,
-  ShareTokenTtl,
 } from "../../shared/schema";
 import type {
   CalendarCreatedResponse,
   MySessionsResponse,
   PastSessionSummary,
   MySessionSummary,
-  ShareTokenResponse,
 } from "../../shared/types";
 import { ownerSecretHash, readBearer, requireOwner, sha256Hex, touchAccess } from "../auth";
 import * as db from "../db";
@@ -123,24 +120,6 @@ calendars.post("/:id/edit-secret", rateLimit("RL_WRITE"), async (c) => {
     return c.json({ ok: true });
   }
   throw Errors.unauthorized();
-});
-
-// 共有トークンの発行
-calendars.post("/:id/share-tokens", rateLimit("RL_TOKEN"), async (c) => {
-  const cal = await requireOwner(c, c.req.param("id"));
-  const { ttlSeconds = ShareTokenTtl.default } = await readBody(c, CreateShareToken);
-  const shareToken = newShareToken();
-  // 期限が来たら KV が自動で消す
-  await c.env.SHARE_TOKENS.put(
-    shareToken,
-    JSON.stringify({ calendarId: cal.id, generation: cal.tokenGeneration }),
-    { expirationTtl: ttlSeconds },
-  );
-  const body: ShareTokenResponse = {
-    shareToken,
-    expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
-  };
-  return c.json(body, 201);
 });
 
 // 参加中の卓と、これまでのセッション

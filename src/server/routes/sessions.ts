@@ -131,23 +131,12 @@ sessions.delete("/:id", rateLimit("RL_WRITE"), async (c) => {
   return c.body(null, 204);
 });
 
-// 参加(必ず PL)。本人の秘密か、共有トークンのどちらか
+// 参加(必ず PL)。参加する人の編集URLの秘密で行う
+// (共有トークンでの参加は、画面で使うようになるまで止めている。spec.md 3.15)
 sessions.post("/:id/participants", rateLimit("RL_WRITE"), async (c) => {
   const sessionId = sessionIdParam(c);
+  const calendarId = (await requireCalendar(c)).id;
   const body = await readBody(c, JoinSession);
-  const hasHeader = c.req.header("Authorization") !== undefined;
-  if (hasHeader && body.shareToken) {
-    throw new ApiError(400, "INVALID_REQUEST", "秘密と参加用トークンは、どちらか一方だけを送ってください");
-  }
-
-  let calendarId: string;
-  if (hasHeader) {
-    calendarId = (await requireCalendar(c)).id;
-  } else if (body.shareToken) {
-    calendarId = await resolveShareToken(c, body.shareToken);
-  } else {
-    throw Errors.unauthorized();
-  }
 
   const session = await c.env.DB.prepare("SELECT archived_at FROM sessions WHERE id = ?1")
     .bind(sessionId)
@@ -176,16 +165,6 @@ sessions.post("/:id/participants", rateLimit("RL_WRITE"), async (c) => {
   }
 });
 
-/** 共有トークンからカレンダーを特定する。期限切れ・再発行前のものは 401 */
-async function resolveShareToken(c: Context<AppEnv>, token: string): Promise<string> {
-  const stored = await c.env.SHARE_TOKENS.get<{ calendarId: string; generation: number }>(token, "json");
-  if (!stored) throw Errors.shareTokenInvalid();
-  const row = await c.env.DB.prepare("SELECT token_generation FROM calendars WHERE id = ?1")
-    .bind(stored.calendarId)
-    .first<{ token_generation: number }>();
-  if (!row || row.token_generation !== stored.generation) throw Errors.shareTokenInvalid();
-  return stored.calendarId;
-}
 
 /** パスの参加IDの参加者を、その卓の中から探す */
 function findTarget(bundle: db.SessionBundle, c: Context<AppEnv>): db.ParticipantRow {

@@ -3,7 +3,7 @@ import type { MiddlewareHandler } from "hono";
 import { Errors } from "./errors";
 import type { AppEnv } from "./types";
 
-type LimiterName = "RL_CREATE" | "RL_TOKEN" | "RL_WRITE" | "RL_READ";
+type LimiterName = "RL_CREATE" | "RL_WRITE" | "RL_READ";
 
 /**
  * 数える単位を決める。

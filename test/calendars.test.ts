@@ -225,19 +225,15 @@ describe("編集URLの再発行", () => {
     expect((await send(newSecret())).status).toBe(401);
   });
 
-  it("再発行すると、それまでの共有トークンの世代が古くなる", async () => {
+  it("再発行すると、共有トークン用の世代の数字が1つ進む(将来トークンを戻すときのため)", async () => {
     const cal = await createCalendar();
-    const tokenRes = await api("POST", `/api/calendars/${cal.id}/share-tokens`, { secret: cal.editSecret });
-    const { shareToken } = await tokenRes.json<{ shareToken: string }>();
     await api("POST", `/api/calendars/${cal.id}/edit-secret`, {
       secret: cal.editSecret,
       body: { newSecret: newSecret() },
     });
-    const stored = await env.SHARE_TOKENS.get<{ generation: number }>(shareToken, "json");
     const row = await env.DB.prepare("SELECT token_generation FROM calendars WHERE id = ?1")
       .bind(cal.id)
       .first<{ token_generation: number }>();
-    expect(stored!.generation).toBe(0);
     expect(row!.token_generation).toBe(1);
   });
 
@@ -251,32 +247,11 @@ describe("編集URLの再発行", () => {
   });
 });
 
-describe("共有トークン", () => {
-  it("発行すると KV に期限つきで保存される", async () => {
+describe("共有トークン(止めている)", () => {
+  it("発行の API はない(404)", async () => {
     const cal = await createCalendar();
-    const res = await api("POST", `/api/calendars/${cal.id}/share-tokens`, {
-      secret: cal.editSecret,
-      body: { ttlSeconds: 3600 },
-    });
-    expect(res.status).toBe(201);
-    const { shareToken, expiresAt } = await res.json<{ shareToken: string; expiresAt: string }>();
-    expect(shareToken).toMatch(ID_PATTERNS.shareToken);
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    expect(diff).toBeGreaterThan(3500_000);
-    expect(diff).toBeLessThanOrEqual(3600_000);
-    const stored = await env.SHARE_TOKENS.get<{ calendarId: string }>(shareToken, "json");
-    expect(stored!.calendarId).toBe(cal.id);
-  });
-
-  it("期限の秒数が範囲外だと 422", async () => {
-    const cal = await createCalendar();
-    for (const ttlSeconds of [59, 86401]) {
-      const res = await api("POST", `/api/calendars/${cal.id}/share-tokens`, {
-        secret: cal.editSecret,
-        body: { ttlSeconds },
-      });
-      expect(res.status).toBe(422);
-    }
+    const res = await api("POST", `/api/calendars/${cal.id}/share-tokens`, { secret: cal.editSecret });
+    expect(res.status).toBe(404);
   });
 });
 
@@ -438,18 +413,7 @@ describe("セキュリティの共通処理", () => {
   });
 });
 
-describe("回数制限(書き込み・共有トークン)", () => {
-  it("共有トークンは同じ接続元から1分に10回まで", async () => {
-    const cal = await createCalendar();
-    const ip = freshIp();
-    const statuses: number[] = [];
-    for (let i = 0; i < 11; i++) {
-      statuses.push((await api("POST", `/api/calendars/${cal.id}/share-tokens`, { secret: cal.editSecret, ip })).status);
-    }
-    expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
-    expect(statuses[10]).toBe(429);
-  });
-
+describe("回数制限(書き込み・読み取り)", () => {
   it("書き込みは同じ接続元から1分に60回まで", async () => {
     const cal = await createCalendar();
     const ip = freshIp();

@@ -21,4 +21,3 @@ export const RAW_LIMITS = {
 /** 1つのカレンダーの予定全体の大きさの上限(文字数) */
 export const MAX_AVAILABILITY_CHARS = 131072;
 
-export const ShareTokenTtl = { default: 86400, min: 60, max: 86400 } as const;

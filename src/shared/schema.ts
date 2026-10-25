@@ -2,10 +2,10 @@
 import * as v from "valibot";
 import { isValidDate } from "./dates";
 import { ID_PATTERNS } from "./ids";
-import { LIMITS, RAW_LIMITS, ShareTokenTtl } from "./limits";
+import { LIMITS, RAW_LIMITS } from "./limits";
 import { cleanMultiLine, cleanSingleLine } from "./text";
 
-export { LIMITS, ShareTokenTtl };
+export { LIMITS };
 
 
 /** 日付("YYYY-MM-DD" で実在する日) */
@@ -57,16 +57,6 @@ export const ReissueSecret = v.strictObject({
   newSecret: v.pipe(v.string(), v.regex(ID_PATTERNS.secret, "新しい秘密の形が正しくありません")),
 });
 
-export const CreateShareToken = v.strictObject({
-  ttlSeconds: v.optional(
-    v.pipe(
-      v.number(),
-      v.integer("秒数は整数で指定してください"),
-      v.minValue(ShareTokenTtl.min, `有効期限は${ShareTokenTtl.min}秒以上です`),
-      v.maxValue(ShareTokenTtl.max, `有効期限は${ShareTokenTtl.max}秒以下です`),
-    ),
-  ),
-});
 
 // ---- 卓(spec.md 5.6) ----
 
@@ -100,9 +90,6 @@ export const PatchSession = v.strictObject({
 });
 
 export const JoinSession = v.strictObject({
-  shareToken: v.optional(
-    v.pipe(v.string(), v.regex(ID_PATTERNS.shareToken, "参加用のトークンの形が正しくありません")),
-  ),
   displayName: v.optional(DisplayName),
 });
 

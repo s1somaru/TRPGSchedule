@@ -24,10 +24,6 @@ export interface CalendarCreatedResponse extends CalendarResponse {
   editSecret: string;
 }
 
-export interface ShareTokenResponse {
-  shareToken: string;
-  expiresAt: string;
-}
 
 export interface MySessionSummary {
   id: string;

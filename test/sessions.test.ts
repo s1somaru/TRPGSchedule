@@ -173,36 +173,19 @@ describe("参加", () => {
     expect(await code(res)).toBe("ALREADY_JOINED");
   });
 
-  it("共有トークンで参加できる(この場合も PL)", async () => {
+  it("共有トークンでは参加できない(止めている)", async () => {
     const { s } = await setup();
-    const x = await createCalendar("トークンの人");
-    const t = await api("POST", `/api/calendars/${x.id}/share-tokens`, { secret: x.editSecret });
-    const { shareToken } = await t.json<{ shareToken: string }>();
-    const res = await api("POST", `/api/sessions/${s.id}/participants`, { body: { shareToken } });
-    expect(res.status).toBe(201);
-    expect((await res.json<{ role: string }>()).role).toBe("PL");
+    const res = await api("POST", `/api/sessions/${s.id}/participants`, {
+      body: { shareToken: `shr_${"A".repeat(43)}` },
+    });
+    expect(res.status).toBe(401);
+    const x = await createCalendar();
+    // 秘密と一緒に送っても、知らない項目として断る
+    expect((await join(s.id, x, { shareToken: `shr_${"A".repeat(43)}` })).status).toBe(400);
   });
 
-  it("存在しない・再発行前の共有トークンは 401", async () => {
+  it("秘密がないと参加できない(401)", async () => {
     const { s } = await setup();
-    const fake = `shr_${"A".repeat(43)}`;
-    const r1 = await api("POST", `/api/sessions/${s.id}/participants`, { body: { shareToken: fake } });
-    expect(r1.status).toBe(401);
-    expect(await code(r1)).toBe("SHARE_TOKEN_INVALID");
-
-    const x = await createCalendar();
-    const t = await api("POST", `/api/calendars/${x.id}/share-tokens`, { secret: x.editSecret });
-    const { shareToken } = await t.json<{ shareToken: string }>();
-    await api("POST", `/api/calendars/${x.id}/edit-secret`, { secret: x.editSecret, body: { newSecret: newSecret() } });
-    const r2 = await api("POST", `/api/sessions/${s.id}/participants`, { body: { shareToken } });
-    expect(r2.status).toBe(401);
-  });
-
-  it("秘密と共有トークンの両方を送ると 400、どちらもないと 401", async () => {
-    const { s } = await setup();
-    const x = await createCalendar();
-    const both = await join(s.id, x, { shareToken: `shr_${"A".repeat(43)}` });
-    expect(both.status).toBe(400);
     expect((await api("POST", `/api/sessions/${s.id}/participants`, { body: {} })).status).toBe(401);
   });
 

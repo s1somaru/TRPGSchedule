@@ -7,7 +7,6 @@ export const ID_PATTERNS = {
   session: new RegExp(`^ses_${B64URL}{22}$`),
   participation: new RegExp(`^prt_${B64URL}{22}$`),
   secret: new RegExp(`^sec_${B64URL}{43}$`),
-  shareToken: new RegExp(`^shr_${B64URL}{43}$`),
 } as const;
 
 function base64url(bytes: Uint8Array): string {
@@ -26,4 +25,3 @@ export const newCalendarId = () => random("cal_", 16);
 export const newSessionId = () => random("ses_", 16);
 export const newParticipationId = () => random("prt_", 16);
 export const newSecret = () => random("sec_", 32);
-export const newShareToken = () => random("shr_", 32);

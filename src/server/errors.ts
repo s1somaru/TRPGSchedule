@@ -19,8 +19,6 @@ export const Errors = {
   invalidRequest: () => new ApiError(400, "INVALID_REQUEST", "送られたデータの形が正しくありません"),
   unauthorized: () =>
     new ApiError(401, "UNAUTHORIZED", "編集URLが正しくないか、使えなくなっています"),
-  shareTokenInvalid: () =>
-    new ApiError(401, "SHARE_TOKEN_INVALID", "参加用のトークンが正しくないか、期限が切れています"),
   forbidden: (message = "この操作はできません") => new ApiError(403, "FORBIDDEN", message),
   notFound: () => new ApiError(404, "NOT_FOUND", "見つかりませんでした"),
   payloadTooLarge: () => new ApiError(413, "PAYLOAD_TOO_LARGE", "送られたデータが大きすぎます"),
