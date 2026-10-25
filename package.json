@@ -9,7 +9,10 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json",
     "test": "vite build && vitest run",
     "db:migrate:local": "wrangler d1 migrations apply trpg-schedule --local",
-    "deploy": "vite build && wrangler deploy"
+    "deploy": "vite build && wrangler deploy",
+    "db:migrate:remote": "wrangler d1 migrations apply trpg-schedule --remote",
+    "feedback": "wrangler d1 execute trpg-schedule --remote --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\"",
+    "feedback:local": "wrangler d1 execute trpg-schedule --local --command \"SELECT created_at, kind, rating, category, page, contact, message FROM feedback ORDER BY created_at DESC LIMIT 50\""
   },
   "dependencies": {
     "hono": "4.13.13",

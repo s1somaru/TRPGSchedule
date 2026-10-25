@@ -83,8 +83,17 @@ test/            テスト
 ```bash
 npx wrangler login
 npx wrangler d1 create trpg-schedule --location apac   # 表示された database_id を wrangler.jsonc に書く
-npx wrangler d1 migrations apply trpg-schedule --remote
+npm run db:migrate:remote
 npm run deploy
+```
+
+### お問い合わせ・評価を読む
+
+アプリの「お問い合わせ」と、フッタの評価で送られた内容は、データベースの `feedback` 表に保存されます(1年で自動で削除)。
+
+```bash
+npm run feedback          # 本番(新しい順に50件)
+npm run feedback:local    # 手元の開発環境
 ```
 
 ## セキュリティの問題を見つけたら

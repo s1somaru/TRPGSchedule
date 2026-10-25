@@ -19,7 +19,11 @@ export interface CleanupOptions {
 export interface CleanupResult {
   archivedSessions: number;
   deletedCalendars: number;
+  deletedFeedback: number;
 }
+
+/** 問い合わせ・評価を消すまでの日数 */
+export const DELETE_FEEDBACK_AFTER_DAYS = 365;
 
 /**
  * 終わった卓を記録にする。
@@ -82,6 +86,13 @@ async function deleteOldCalendars(db: D1Database, now: Date, opts: Required<Clea
   return total;
 }
 
+/** 1年たった問い合わせ・評価を消す(返信先などの個人情報を長く持たないため) */
+async function deleteOldFeedback(db: D1Database, now: Date): Promise<number> {
+  const cutoff = new Date(now.getTime() - DELETE_FEEDBACK_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const res = await db.prepare("DELETE FROM feedback WHERE created_at < ?1").bind(cutoff).run();
+  return res.meta.changes;
+}
+
 /** 毎日の定期処理の本体 */
 export async function runDailyCleanup(
   db: D1Database,
@@ -91,7 +102,8 @@ export async function runDailyCleanup(
   const opts = { batchSize: options.batchSize ?? 500, maxRounds: options.maxRounds ?? 10 };
   const archivedSessions = await archiveSessions(db, now, opts);
   const deletedCalendars = await deleteOldCalendars(db, now, opts);
+  const deletedFeedback = await deleteOldFeedback(db, now);
   // ログには件数だけを残す(ID や名前は出さない)
-  console.log(JSON.stringify({ job: "daily-cleanup", archivedSessions, deletedCalendars }));
-  return { archivedSessions, deletedCalendars };
+  console.log(JSON.stringify({ job: "daily-cleanup", archivedSessions, deletedCalendars, deletedFeedback }));
+  return { archivedSessions, deletedCalendars, deletedFeedback };
 }

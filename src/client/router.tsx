@@ -8,14 +8,18 @@ const EVENT = "app:navigate";
 export interface NavState {
   /** 卓ページから来たとき、戻り先の卓 */
   returnTo?: { sessionId: string; title: string };
+  /** トップで、この見出しまでスクロールする */
+  scrollTo?: string;
+  /** 問い合わせ画面で、最初に選んでおく種類 */
+  category?: "bug" | "request" | "question" | "other";
 }
 
 /** 画面を移る(ページの読み込みはしない) */
 export function navigate(to: string, opts: { replace?: boolean; state?: NavState } = {}): void {
   if (opts.replace) history.replaceState(opts.state ?? null, "", to);
   else history.pushState(opts.state ?? null, "", to);
-  window.dispatchEvent(new Event(EVENT));
   window.scrollTo(0, 0);
+  window.dispatchEvent(new Event(EVENT));
 }
 
 /** 今の画面に渡された情報 */

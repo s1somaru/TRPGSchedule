@@ -2,7 +2,10 @@
 import { render } from "preact";
 import { useEffect } from "preact/hooks";
 import { ID_PATTERNS } from "../shared/ids";
+import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
+import { Contact } from "./pages/Contact";
+import { Privacy, Terms } from "./pages/Legal";
 import { NewSession } from "./pages/NewSession";
 import { MyCalendar } from "./pages/MyCalendar";
 import { SessionPage } from "./pages/SessionPage";
@@ -18,6 +21,9 @@ function App() {
   const known =
     path === "/" ||
     path === "/new" ||
+    path === "/contact" ||
+    path === "/terms" ||
+    path === "/privacy" ||
     (calendar !== undefined && ID_PATTERNS.calendar.test(calendar)) ||
     (session !== undefined && ID_PATTERNS.session.test(session));
 
@@ -28,6 +34,9 @@ function App() {
 
   let page;
   if (path === "/new") page = <NewSession />;
+  else if (path === "/contact") page = <Contact key={path + JSON.stringify(history.state)} />;
+  else if (path === "/terms") page = <Terms />;
+  else if (path === "/privacy") page = <Privacy />;
   else if (calendar && known) page = <MyCalendar key={calendar} id={calendar} />;
   else if (session && known) page = <SessionPage key={session} id={session} />;
   else page = <Top key={path} />;
@@ -36,6 +45,7 @@ function App() {
     <>
       <Header path={path} />
       {page}
+      <Footer path={path} />
     </>
   );
 }

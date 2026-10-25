@@ -122,6 +122,22 @@ export const api = {
 
   removeParticipant: (id: string, pid: string, secret: string) =>
     request<void>("DELETE", `/sessions/${id}/participants/${pid}`, { secret }),
+
+  // ---- 問い合わせ・評価 ----
+
+  sendFeedback: (
+    body:
+      | { kind: "rating"; rating: number; message?: string; page?: string }
+      | { kind: "contact"; category: string; message: string; contact?: string; page?: string },
+  ) => request<{ ok: true }>("POST", "/feedback", { body }),
 };
+
+/** 今の画面の種類(問い合わせ・評価に添える。ID は入れない) */
+export function pageKind(): string {
+  const p = location.pathname;
+  if (p.startsWith("/c/")) return "/c";
+  if (p.startsWith("/s/")) return "/s";
+  return ["/", "/new", "/contact", "/terms", "/privacy"].includes(p) ? p : "/";
+}
 
 export type { Availability };

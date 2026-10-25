@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { runDailyCleanup } from "./cron";
 import { Errors, handleError } from "./errors";
 import { calendars } from "./routes/calendars";
+import { feedback } from "./routes/feedback";
 import { sessions } from "./routes/sessions";
 import { securityHeaders, sizeLimit, writeGuard } from "./security";
 import type { AppEnv } from "./types";
@@ -12,6 +13,7 @@ const app = new Hono<AppEnv>();
 app.use("/api/*", securityHeaders, writeGuard, sizeLimit);
 app.route("/api/calendars", calendars);
 app.route("/api/sessions", sessions);
+app.route("/api/feedback", feedback);
 
 app.notFound((c) => handleError(Errors.notFound(), c));
 app.onError(handleError);

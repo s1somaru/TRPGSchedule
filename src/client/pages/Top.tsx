@@ -1,10 +1,10 @@
 // トップ画面(spec.md 6.3 ①)と、カレンダーの作成 → URL保存(②)
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
 import { api, ApiClientError } from "../api";
 import { SaveUrl } from "../components/SaveUrl";
 import { graphemeLength } from "../format";
-import { Link, navigate } from "../router";
+import { Link, navigate, navState } from "../router";
 import { editUrl, storage } from "../storage";
 
 type Step = { kind: "top" } | { kind: "create" } | { kind: "save"; id: string; secret: string };
@@ -40,6 +40,17 @@ export function Top() {
 
 function Home(props: { onCreate: () => void }) {
   const [calendars, setCalendars] = useState(storage.calendars());
+
+  // フッタの「使い方」から来たら、使い方の見出しまでスクロールする(トップにいるときも)
+  useEffect(() => {
+    const scroll = () => {
+      const target = navState().scrollTo;
+      if (target) setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth" }), 0);
+    };
+    scroll();
+    window.addEventListener("app:navigate", scroll);
+    return () => window.removeEventListener("app:navigate", scroll);
+  }, []);
   const [sessions, setSessions] = useState(storage.sessions());
   const mine = calendars[0];
 
@@ -124,7 +135,7 @@ function Home(props: { onCreate: () => void }) {
         </section>
       )}
 
-      <section class="steps" aria-label="使い方">
+      <section class="steps" id="how" aria-label="使い方">
         <h2>使い方</h2>
         <ol class="step-list">
           <li class="step-card">

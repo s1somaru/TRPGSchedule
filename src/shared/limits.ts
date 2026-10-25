@@ -18,6 +18,13 @@ export const RAW_LIMITS = {
   title: 400,
 } as const;
 
+/** 問い合わせ・評価の上限(見た目の文字数) */
+export const FEEDBACK_LIMITS = {
+  contactMessage: 2000,
+  ratingMessage: 500,
+  replyTo: 100,
+} as const;
+
 /** 1つのカレンダーの予定全体の大きさの上限(文字数) */
 export const MAX_AVAILABILITY_CHARS = 131072;
 

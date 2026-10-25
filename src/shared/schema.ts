@@ -2,7 +2,7 @@
 import * as v from "valibot";
 import { isValidDate } from "./dates";
 import { ID_PATTERNS } from "./ids";
-import { LIMITS, RAW_LIMITS } from "./limits";
+import { FEEDBACK_LIMITS, LIMITS, RAW_LIMITS } from "./limits";
 import { cleanMultiLine, cleanSingleLine } from "./text";
 
 export { LIMITS };
@@ -104,3 +104,40 @@ export const PatchParticipant = v.strictObject({
   role: v.optional(v.picklist(["GM", "PL"], "役割は GM か PL です")),
   displayName: v.optional(v.nullable(DisplayName)),
 });
+
+// ---- 問い合わせ・評価(spec.md 3.17) ----
+
+/** どの画面から送ったか(ID は入れない) */
+export const FeedbackPage = v.picklist(["/", "/c", "/s", "/new", "/contact", "/terms", "/privacy"]);
+
+const longText = (max: number, label: string) =>
+  v.pipe(
+    v.string(),
+    v.transform(cleanMultiLine),
+    v.maxGraphemes(max, `${label}は${max}文字までです`),
+    v.maxLength(max * 4, `${label}が長すぎます`),
+  );
+
+export const RatingFeedback = v.strictObject({
+  kind: v.literal("rating"),
+  rating: v.pipe(v.number(), v.integer(), v.minValue(1, "★は1〜5で選んでください"), v.maxValue(5, "★は1〜5で選んでください")),
+  message: v.optional(longText(FEEDBACK_LIMITS.ratingMessage, "ひとこと")),
+  page: v.optional(FeedbackPage),
+});
+
+export const ContactFeedback = v.strictObject({
+  kind: v.literal("contact"),
+  category: v.picklist(["bug", "request", "question", "other"], "種類を選んでください"),
+  message: v.pipe(longText(FEEDBACK_LIMITS.contactMessage, "内容"), v.minLength(1, "内容を入れてください")),
+  contact: v.optional(
+    v.pipe(
+      v.string(),
+      v.transform(cleanSingleLine),
+      v.maxGraphemes(FEEDBACK_LIMITS.replyTo, `連絡先は${FEEDBACK_LIMITS.replyTo}文字までです`),
+      v.maxLength(FEEDBACK_LIMITS.replyTo * 4, "連絡先が長すぎます"),
+    ),
+  ),
+  page: v.optional(FeedbackPage),
+});
+
+export const FeedbackBody = v.variant("kind", [RatingFeedback, ContactFeedback], "送る内容の種類が正しくありません");

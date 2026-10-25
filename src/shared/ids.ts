@@ -25,3 +25,4 @@ export const newCalendarId = () => random("cal_", 16);
 export const newSessionId = () => random("ses_", 16);
 export const newParticipationId = () => random("prt_", 16);
 export const newSecret = () => random("sec_", 32);
+export const newFeedbackId = () => random("fdb_", 16);
