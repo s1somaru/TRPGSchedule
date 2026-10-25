@@ -7,7 +7,7 @@ import { Link } from "../router";
 import { APP_NAME } from "./Header";
 import { LogoMark } from "./Icons";
 
-export const REPO_URL = "https://github.com/s1somaru/TRPGSchedule";
+export const REPO_URL = "https://github.com/s1somaru/takuyose";
 const RATED_KEY = "takuyose:rated";
 
 export function Footer(props: { path: string }) {

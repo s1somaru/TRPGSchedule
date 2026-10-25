@@ -100,4 +100,4 @@ npm run feedback:export   # 本番の控えを backups/feedback.sql に保存(Gi
 
 ## セキュリティの問題を見つけたら
 
-公開の Issue には書かず、GitHub の [Security advisories](https://github.com/s1somaru/TRPGSchedule/security/advisories/new) から非公開で知らせてください。
+公開の Issue には書かず、GitHub の [Security advisories](https://github.com/s1somaru/takuyose/security/advisories/new) から非公開で知らせてください。
