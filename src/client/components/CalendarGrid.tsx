@@ -1,14 +1,11 @@
 // 月表示のカレンダー(spec.md 6.3 ③)。
 // タップで1日ずつ付ける。長押ししてから指をなぞると、なぞった日にまとめて付く
 // (すぐなぞった場合は、ふつうのスクロールとして扱う)
-import { useEffect, useRef } from "preact/hooks";
 import { addDays } from "../../shared/dates";
 import type { Availability } from "../../shared/types";
 import { monthsBetween } from "../logic";
+import { useLongPressPaint } from "../useLongPressPaint";
 import { dateLabel, STATUS_LABEL, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
-
-const LONG_PRESS_MS = 400;
-const MOVE_TOLERANCE_PX = 10;
 
 interface Props {
   availability: Availability;
@@ -22,110 +19,20 @@ interface Props {
   onPaint: (date: string) => void;
 }
 
-interface Gesture {
-  pointerId: number;
-  x: number;
-  y: number;
-  date: string;
-  memoDot: boolean;
-  timer: number | null;
-  painting: boolean;
-  painted: Set<string>;
-}
-
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** 指の下にある「押せる日」 */
-function dateUnder(x: number, y: number): string | null {
-  const el = document.elementFromPoint(x, y)?.closest<HTMLButtonElement>("[data-date]");
-  return el && !el.disabled ? el.dataset.date! : null;
-}
-
 export function CalendarGrid(props: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const gesture = useRef<Gesture | null>(null);
-  const propsRef = useRef(props);
-  propsRef.current = props;
-
-  // なぞっている間は、画面のスクロールを止める(この処理は passive: false が必要なので手で登録する)
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onTouchMove = (e: TouchEvent) => {
-      if (gesture.current?.painting) e.preventDefault();
-    };
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    return () => el.removeEventListener("touchmove", onTouchMove);
-  }, []);
-
-  const end = () => {
-    const g = gesture.current;
-    if (g?.timer) clearTimeout(g.timer);
-    gesture.current = null;
-  };
-
-  const onPointerDown = (e: PointerEvent) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    const target = e.target as Element;
-    const cell = target.closest<HTMLButtonElement>("[data-date]");
-    if (!cell || cell.disabled) return;
-    end();
-    const g: Gesture = {
-      pointerId: e.pointerId,
-      x: e.clientX,
-      y: e.clientY,
-      date: cell.dataset.date!,
-      memoDot: target.closest("[data-memo-dot]") !== null,
-      timer: null,
-      painting: false,
-      painted: new Set(),
-    };
-    if (propsRef.current.canPaint && !g.memoDot) {
-      g.timer = window.setTimeout(() => {
-        g.timer = null;
-        g.painting = true;
-        g.painted.add(g.date);
-        propsRef.current.onPaint(g.date);
-        navigator.vibrate?.(10);
-      }, LONG_PRESS_MS);
-    }
-    gesture.current = g;
-  };
-
-  const onPointerMove = (e: PointerEvent) => {
-    const g = gesture.current;
-    if (!g || e.pointerId !== g.pointerId) return;
-    if (!g.painting) {
-      // 長押しになる前に動いたら、スクロールのつもりとみなしてやめる
-      if (Math.hypot(e.clientX - g.x, e.clientY - g.y) > MOVE_TOLERANCE_PX) end();
-      return;
-    }
-    const date = dateUnder(e.clientX, e.clientY);
-    if (date && !g.painted.has(date)) {
-      g.painted.add(date);
-      propsRef.current.onPaint(date);
-    }
-  };
-
-  const onPointerUp = (e: PointerEvent) => {
-    const g = gesture.current;
-    if (!g || e.pointerId !== g.pointerId) return;
-    if (!g.painting) propsRef.current.onTap(g.date, g.memoDot);
-    end();
-  };
+  // タップと「長押ししてなぞる」の見分けは、共通の部品に任せる
+  const paint = useLongPressPaint({
+    canPaint: props.canPaint,
+    onTap: props.onTap,
+    onPaint: (date) => props.onPaint(date),
+  });
 
   const months = monthsBetween(props.today, props.range.to);
 
   return (
-    <div
-      ref={containerRef}
-      class="months"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={end}
-      onContextMenu={(e) => e.preventDefault()}
-    >
+    <div ref={paint.ref} class="months" {...paint.handlers}>
       {months.map(({ year, month }) => {
         const first = `${year}-${pad(month)}-01`;
         const days = new Date(Date.UTC(year, month, 0)).getUTCDate();

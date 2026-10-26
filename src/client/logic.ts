@@ -88,3 +88,11 @@ export function toggleDay(s: PickerState, date: string): PickerState {
     extras: inPeriod ? s.extras : [...s.extras, date],
   };
 }
+
+/**
+ * 1日を「選んだ状態」または「外した状態」にする(長押ししてなぞるときに使う)。
+ * すでにその状態なら、何も変えない
+ */
+export function setDayPicked(s: PickerState, date: string, picked: boolean): PickerState {
+  return computePicked(s).includes(date) === picked ? s : toggleDay(s, date);
+}

@@ -9,6 +9,7 @@ import {
   daysBetween,
   monthsBetween,
   parseEditUrl,
+  setDayPicked,
   toggleDay,
   type PickerState,
 } from "../src/client/logic";
@@ -109,6 +110,34 @@ describe("候補日の選び方(computePicked / toggleDay)", () => {
     const back = toggleDay(offWeekday, "2026-11-20");
     expect(back.extras).toEqual(["2026-11-02"]);
     expect(back.removed).toEqual([]);
+  });
+});
+
+describe("長押しでなぞったときの候補日(setDayPicked)", () => {
+  const base: PickerState = {
+    period: { from: "2026-11-02", to: "2026-11-08" },
+    weekdays: ALL_DAYS,
+    extras: [],
+    removed: [],
+  };
+
+  it("選んだ状態にする:期間外の日は足され、すでに選ばれている日は変わらない", () => {
+    let s = setDayPicked(base, "2026-11-10", true);
+    expect(computePicked(s)).toContain("2026-11-10");
+    const same = setDayPicked(s, "2026-11-03", true);
+    expect(same).toBe(s);
+  });
+
+  it("外した状態にする:期間内の日は外れ、選ばれていない日は変わらない", () => {
+    const s = setDayPicked(base, "2026-11-03", false);
+    expect(computePicked(s)).not.toContain("2026-11-03");
+    expect(setDayPicked(s, "2026-11-20", false)).toBe(s);
+  });
+
+  it("なぞった日をまとめて足すと、全部選ばれる", () => {
+    let s: PickerState = { period: null, weekdays: ALL_DAYS, extras: [], removed: [] };
+    for (const d of ["2026-11-12", "2026-11-13", "2026-11-14"]) s = setDayPicked(s, d, true);
+    expect(computePicked(s)).toEqual(["2026-11-12", "2026-11-13", "2026-11-14"]);
   });
 });
 

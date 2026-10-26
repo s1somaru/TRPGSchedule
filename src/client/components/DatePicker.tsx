@@ -4,7 +4,9 @@
 //   3. 1日ずつ足し引き(日をタップ)
 import { useState } from "preact/hooks";
 import { addDays, addMonths } from "../../shared/dates";
-import { ALL_DAYS, computePicked as compute, monthsBetween, toggleDay, type PickerState as State } from "../logic";
+import { useRef } from "preact/hooks";
+import { ALL_DAYS, computePicked as compute, monthsBetween, setDayPicked, toggleDay, type PickerState as State } from "../logic";
+import { useLongPressPaint } from "../useLongPressPaint";
 import { LIMITS } from "../../shared/limits";
 import type { Availability } from "../../shared/types";
 import { dateLabel, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
@@ -71,6 +73,18 @@ export function DatePicker(props: Props) {
     }
     // 1日ずつの足し引き
     apply(toggleDay(state, date));
+  };
+
+  /** なぞっている間は「足す」か「外す」か(なぞり始めの日で決める) */
+  const paintMode = useRef<boolean>(true);
+  // apply は state を使うので、なぞる途中で何度も呼ばれても最新の状態から計算できるようにする
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const onDayPaint = (date: string, first: boolean) => {
+    if (first) paintMode.current = !compute(stateRef.current).includes(date);
+    const next = setDayPicked(stateRef.current, date, paintMode.current);
+    if (next === stateRef.current) return;
+    if (apply(next)) stateRef.current = next;
   };
 
   const setWeekdays = (weekdays: boolean[]) => apply({ ...state, weekdays });
@@ -198,6 +212,8 @@ export function DatePicker(props: Props) {
           availability={props.availability}
           pickingStart={picking && picking !== "start" ? picking : null}
           onTap={onDayTap}
+          onPaint={onDayPaint}
+          canPaint={picking === null}
         />
       </div>
     </div>
@@ -213,12 +229,21 @@ function PickerGrid(props: {
   availability?: Availability;
   pickingStart: string | null;
   onTap: (date: string) => void;
+  /** 長押ししてなぞったとき。first はなぞり始めの日 */
+  onPaint: (date: string, first: boolean) => void;
+  /** なぞる操作を使えるか(期間の指定中は使わない) */
+  canPaint: boolean;
 }) {
+  const paint = useLongPressPaint({
+    canPaint: props.canPaint,
+    onTap: (date) => props.onTap(date),
+    onPaint: props.onPaint,
+  });
   const months = monthsBetween(props.today, props.range.to);
   const selected = new Set(props.selected);
 
   return (
-    <div class="months">
+    <div ref={paint.ref} class="months" {...paint.handlers}>
       {months.map(({ year, month }) => {
         const first = `${year}-${pad(month)}-01`;
         const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -257,7 +282,11 @@ function PickerGrid(props: {
                     disabled={date < props.range.from || date > props.range.to}
                     aria-pressed={on}
                     aria-label={`${dateLabel(date)}${mine ? ` 自分の予定:${STATUS_SYMBOL[mine.s]}` : ""}`}
-                    onClick={() => props.onTap(date)}
+                    data-date={date}
+                    onClick={(e) => {
+                      // キーボードで押したとき(指やマウスは共通の部品で扱う)
+                      if (e.detail === 0) props.onTap(date);
+                    }}
                   >
                     <span class="num">{i + 1}</span>
                     {on && (
