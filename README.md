@@ -59,8 +59,7 @@ Node.js 22 以上が必要です。
 
 ```bash
 npm install
-npm run db:migrate:local   # 手元用のデータベースにテーブルを作る
-npm run dev                # 画面をビルドして、手元でサーバーを起動する(http://localhost:8787)
+npm run dev                # 画面をビルドし、手元用のデータベースにテーブルを用意して、サーバーを起動する(http://localhost:8787)
 ```
 
 ```bash

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite build && wrangler dev",
+    "dev": "vite build && wrangler d1 migrations apply takuyose --local && wrangler dev",
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json",
     "test": "vite build && vitest run",
