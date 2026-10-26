@@ -11,7 +11,7 @@ import { DatePicker } from "../components/DatePicker";
 import { JoinSheet } from "../components/JoinSheet";
 import { SessionTable } from "../components/SessionTable";
 import { Sheet } from "../components/Sheet";
-import { dateLabel, graphemeLength, STATUS_SYMBOL } from "../format";
+import { dateLabel, graphemeLength, holidayName, STATUS_SYMBOL } from "../format";
 import { Link, navigate } from "../router";
 import { storage, type StoredCalendar } from "../storage";
 import { JUST_CREATED_KEY } from "./NewSession";
@@ -534,6 +534,7 @@ function DaySheet(props: {
   return (
     <Sheet title={dateLabel(props.date)} onClose={props.onClose}>
       <div class="stack">
+        {holidayName(props.date) && <p class="holiday-name">{holidayName(props.date)}</p>}
         {window && (
           <p class="time-window-note">
             この日の時間帯:{rangeLabel(window)}

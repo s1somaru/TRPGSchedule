@@ -1779,3 +1779,11 @@ textarea.tall {
 .stamp-make {
   align-self: flex-start;
 }
+
+/* 祝日名(1日分の画面の上) */
+.holiday-name {
+  margin: 0;
+  color: var(--sun);
+  font-weight: 600;
+  font-size: 0.9rem;
+}

@@ -9,7 +9,7 @@ import { ALL_DAYS, computePicked as compute, monthsBetween, setDayPicked, toggle
 import { useLongPressPaint } from "../useLongPressPaint";
 import { LIMITS } from "../../shared/limits";
 import type { Availability } from "../../shared/types";
-import { dateLabel, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
+import { dateLabel, dayColorClass, holidayName, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 
 interface Props {
   /** 最初から選ばれている日(候補日の変更のとき) */
@@ -271,7 +271,7 @@ function PickerGrid(props: {
                   "pick",
                   on ? "picked" : "",
                   props.pickingStart === date ? "pick-start" : "",
-                  wd === 0 ? "sun" : wd === 6 ? "sat" : "",
+                  dayColorClass(date),
                   date === props.today ? "today" : "",
                 ].join(" ");
                 return (
@@ -283,6 +283,7 @@ function PickerGrid(props: {
                     aria-pressed={on}
                     aria-label={`${dateLabel(date)}${mine ? ` 自分の予定:${STATUS_SYMBOL[mine.s]}` : ""}`}
                     data-date={date}
+                    title={holidayName(date)}
                     onClick={(e) => {
                       // キーボードで押したとき(指やマウスは共通の部品で扱う)
                       if (e.detail === 0) props.onTap(date);

@@ -2,7 +2,7 @@
 // ◯ と △ の人数は、横にスクロールしなくても見えるよう日付のすぐ右に置く
 import { cellStatus, judgeDate, windowFor } from "../../shared/judge";
 import type { SessionResponse } from "../../shared/types";
-import { dateLabel, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
+import { dateLabel, dayColorClass, holidayName, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 import { ClockIcon, MemoIcon } from "./Icons";
 
 export function SessionTable(props: {
@@ -57,8 +57,8 @@ export function SessionTable(props: {
                     }}
                     aria-label={`${dateLabel(date)}の詳しい予定`}
                   >
-                    <span class={wd === 0 ? "sun" : wd === 6 ? "sat" : ""}>
-                      {shortDate(date)}({weekdayLabel(wd)})
+                    <span class={dayColorClass(date)} title={holidayName(date)}>
+                      {shortDate(date)}({holidayName(date) ? "祝" : weekdayLabel(wd)})
                     </span>
                     {session.confirmedDates.includes(date) && <span class="badge badge-confirmed">開催</span>}
                     {sum.allOk && !session.confirmedDates.includes(date) && <span class="badge badge-ok">全員OK</span>}

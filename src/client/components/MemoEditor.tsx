@@ -6,7 +6,7 @@ import { useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
 import type { TimeRange } from "../../shared/time";
 import type { DayEntry, Status } from "../../shared/types";
-import { dateLabel, graphemeLength, STATUS_LABEL, STATUS_SYMBOL } from "../format";
+import { dateLabel, graphemeLength, holidayName, STATUS_LABEL, STATUS_SYMBOL } from "../format";
 import { Sheet } from "./Sheet";
 import { TimeRangeInput } from "./TimeRangeInput";
 
@@ -64,6 +64,7 @@ export function MemoEditor(props: {
       }
     >
       <div class="stack">
+        {holidayName(props.date) && <p class="holiday-name">{holidayName(props.date)}</p>}
         <div>
           <p class="muted">この日の予定</p>
           <div class="status-choice">

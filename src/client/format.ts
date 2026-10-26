@@ -1,4 +1,5 @@
 // 画面に出す文字の形をそろえる
+import { holidayName } from "../shared/holidays";
 import type { Status } from "../shared/types";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
@@ -11,11 +12,20 @@ export function weekdayOf(date: string): number {
 
 export const weekdayLabel = (i: number) => WEEKDAYS[i]!;
 
-/** 「11月3日(火)」 */
+/** 「11月3日(火)」。祝日は「11月3日(火・祝)」 */
 export function dateLabel(date: string): string {
   const [, m, d] = date.split("-").map(Number);
-  return `${m}月${d}日(${weekdayLabel(weekdayOf(date))})`;
+  return `${m}月${d}日(${weekdayLabel(weekdayOf(date))}${holidayName(date) ? "・祝" : ""})`;
 }
+
+/** 日付の色分け。日曜と祝日は赤(sun)、土曜は青(sat) */
+export function dayColorClass(date: string): string {
+  const wd = weekdayOf(date);
+  if (wd === 0 || holidayName(date)) return "sun";
+  return wd === 6 ? "sat" : "";
+}
+
+export { holidayName };
 
 /** 「11/3」 */
 export function shortDate(date: string): string {

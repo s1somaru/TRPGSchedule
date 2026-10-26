@@ -6,7 +6,7 @@ import type { Availability } from "../../shared/types";
 import { monthsBetween } from "../logic";
 import { rangeLabel, shortRangeLabel } from "../../shared/time";
 import { useLongPressPaint } from "../useLongPressPaint";
-import { dateLabel, STATUS_LABEL, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
+import { dateLabel, dayColorClass, holidayName, STATUS_LABEL, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 
 interface Props {
   availability: Availability;
@@ -60,7 +60,7 @@ export function CalendarGrid(props: Props) {
                 const classes = [
                   "day",
                   entry ? `s-${entry.s}` : "",
-                  wd === 0 ? "sun" : wd === 6 ? "sat" : "",
+                  dayColorClass(date),
                   date === props.today ? "today" : "",
                 ].join(" ");
                 const label = `${dateLabel(date)} ${entry ? STATUS_LABEL[entry.s] : "未入力"}${entry?.time ? `、${rangeLabel(entry.time)}` : ""}${entry?.memo ? "、メモあり" : ""}`;
@@ -72,6 +72,7 @@ export function CalendarGrid(props: Props) {
                     data-date={date}
                     disabled={disabled}
                     aria-label={label}
+                    title={holidayName(date)}
                     onClick={(e) => {
                       // キーボードで押したとき(指やマウスは上の処理で扱う)
                       if (e.detail === 0) props.onTap(date, false);
