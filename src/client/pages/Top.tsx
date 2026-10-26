@@ -2,6 +2,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
 import { api, ApiClientError } from "../api";
+import { BrandMark } from "../components/Brand";
+import { Intro } from "../components/Intro";
 import { SaveUrl } from "../components/SaveUrl";
 import { graphemeLength } from "../format";
 import { Link, navigate, navState } from "../router";
@@ -67,8 +69,17 @@ function Home(props: { onCreate: () => void }) {
   return (
     <main class="page page-wide">
       <section class="hero">
+        <p class="hero-eyebrow">
+          <BrandMark size={22} />
+          TRPGの日程調整
+        </p>
         <h1>予定は1回入れるだけ。</h1>
-        <p class="hero-lead">参加している卓ぜんぶに、あなたの予定が反映されます。ログインは要りません。</p>
+        <p class="hero-lead">参加している卓ぜんぶに、あなたの予定が反映されます。</p>
+        <ul class="hero-badges" aria-label="特徴">
+          <li>登録・ログインなし</li>
+          <li>無料</li>
+          <li>スマホでもPCでも</li>
+        </ul>
         <div class="hero-actions">
           {mine ? (
             <Link href={`/c/${mine.id}`} class="btn btn-primary btn-big">
@@ -135,31 +146,7 @@ function Home(props: { onCreate: () => void }) {
         </section>
       )}
 
-      <section class="steps" id="how" aria-label="使い方">
-        <h2>使い方</h2>
-        <ol class="step-list">
-          <li class="step-card">
-            <span class="step-no">1</span>
-            <h3>カレンダーを作る</h3>
-            <p>名前を入れるだけ。できた編集URLは、パスワードと同じなので大切に保存します。</p>
-          </li>
-          <li class="step-card">
-            <span class="step-no">2</span>
-            <h3>予定を ◯△× で入れる</h3>
-            <p>半年先まで、日ごとに入れられます。長押ししてなぞると、まとめて付けられます。</p>
-          </li>
-          <li class="step-card">
-            <span class="step-no">3</span>
-            <h3>卓URLから参加する</h3>
-            <p>GMから届いた卓URLを開いて参加。あとは自分のカレンダーを変えるだけで、卓にも反映されます。</p>
-          </li>
-        </ol>
-        {!mine && (
-          <button type="button" class="btn btn-primary btn-block btn-big steps-cta" onClick={props.onCreate}>
-            カレンダーを作る
-          </button>
-        )}
-      </section>
+      <Intro onCreate={props.onCreate} hasCalendar={Boolean(mine)} />
     </main>
   );
 }

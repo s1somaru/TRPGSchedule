@@ -1,9 +1,9 @@
 // 全ページの上に出すヘッダ。左上のロゴを押すとトップへ戻る
 import { Link } from "../router";
 import { storage } from "../storage";
-import { LogoMark } from "./Icons";
+import { Brand } from "./Brand";
 
-export const APP_NAME = "たくよせ";
+export { APP_NAME } from "./Brand";
 
 export function Header(props: { path: string }) {
   // この端末で一番最近開いたカレンダー(1人1つの前提で、それを「自分のカレンダー」とする)
@@ -14,8 +14,7 @@ export function Header(props: { path: string }) {
     <header class="site-header">
       <div class="site-header-inner">
         <Link href="/" class="brand">
-          <LogoMark />
-          <span class="brand-name">{APP_NAME}</span>
+          <Brand />
         </Link>
         <nav class="site-nav" aria-label="メニュー">
           {mine && !onCalendar && (

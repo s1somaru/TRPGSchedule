@@ -882,14 +882,17 @@ table.sched {
 }
 
 .sched td.c-o,
+.sample-table td.c-o,
 .day-sym.c-o {
   color: var(--o);
 }
 .sched td.c-t,
+.sample-table td.c-t,
 .day-sym.c-t {
   color: var(--t);
 }
 .sched td.c-x,
+.sample-table td.c-x,
 .day-sym.c-x {
   color: var(--x);
 }
@@ -1786,4 +1789,209 @@ textarea.tall {
   color: var(--sun);
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+/* ---- 画面の下端(スマホで引っ張りすぎたとき) ----
+   フッターより下に、ページの地の色が見えないようにする。
+   ページの外側(html)は地の色にし、画面の下半分だけフッターの色を敷いておく。
+   本文(body)は自分の背景を持つので、ふだんは見えない */
+html {
+  background: var(--bg);
+}
+html::before {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 50vh;
+  background: var(--footer-bg);
+  z-index: -1;
+  pointer-events: none;
+}
+/* 中身が短いページでも、フッターを画面の一番下に置く */
+#app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+#app > main {
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+/* 画面には出さず、読み上げにだけ使う文字 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.brand-img {
+  display: block;
+  object-fit: contain;
+}
+
+/* ---- トップの紹介 ---- */
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.hero-badges {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 20px;
+  padding: 0;
+}
+.hero-badges li {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.intro-block {
+  margin-top: 40px;
+}
+.intro-block h2 {
+  margin-bottom: 14px;
+}
+.intro-sample {
+  margin: 0;
+  max-width: 600px;
+}
+.intro-sample figcaption {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+.sample-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 10px;
+  overflow-x: auto;
+}
+.sample-title {
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+.sample-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.sample-table th,
+.sample-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+  white-space: nowrap;
+}
+.sample-table tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+.sample-table td {
+  font-size: 1.05rem;
+  font-weight: 700;
+  position: relative;
+}
+.sample-table .badge {
+  margin-left: 4px;
+}
+.sample-table .sample-ok {
+  background: color-mix(in srgb, var(--o) 10%, transparent);
+}
+.sample-table .clock-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: var(--muted);
+}
+.merit-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.merit-card,
+.flow-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.merit-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.02rem;
+}
+.merit-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.flow-grid {
+  display: grid;
+  gap: 12px;
+}
+.flow-role {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.flow-card ol {
+  margin: 0;
+  padding-left: 1.3em;
+}
+.flow-card li + li {
+  margin-top: 4px;
+}
+.faq {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.faq-item {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+.faq dt {
+  font-weight: 700;
+}
+.faq dd {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.intro-final {
+  text-align: center;
+  padding: 24px 0 8px;
+}
+.intro-final-lead {
+  font-weight: 600;
+}
+@media (min-width: 760px) {
+  .merit-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .flow-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }

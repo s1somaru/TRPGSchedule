@@ -5,8 +5,7 @@ import { api, ApiClientError, pageKind } from "../api";
 import { graphemeLength } from "../format";
 import { Link } from "../router";
 import { RATED_KEY } from "../storage";
-import { APP_NAME } from "./Header";
-import { LogoMark } from "./Icons";
+import { Brand } from "./Brand";
 
 export const REPO_URL = "https://github.com/s1somaru/takuyose";
 
@@ -19,8 +18,7 @@ export function Footer(props: { path: string }) {
       <div class="footer-main">
         <div class="footer-brand">
           <Link href="/" class="brand footer-logo">
-            <LogoMark />
-            <span class="brand-name">{APP_NAME}</span>
+            <Brand />
           </Link>
           <p>予定は1回入れるだけ。参加している卓ぜんぶに反映されます。</p>
         </div>
