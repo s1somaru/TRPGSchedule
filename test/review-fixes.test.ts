@@ -56,7 +56,8 @@ describe("別のサイトからの書き込み", () => {
       const res = await api("POST", "/api/calendars", { body: { displayName: "x" }, headers: { "Sec-Fetch-Site": site } });
       expect(res.status, site).toBe(403);
     }
-    for (const headers of [{ "Sec-Fetch-Site": "same-origin" }, {}]) {
+    const cases: Record<string, string>[] = [{ "Sec-Fetch-Site": "same-origin" }, {}];
+    for (const headers of cases) {
       const res = await api("POST", "/api/calendars", { body: { displayName: "x" }, headers });
       expect(res.status).toBe(201);
     }
