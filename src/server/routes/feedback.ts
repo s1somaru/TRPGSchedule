@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { newFeedbackId } from "../../shared/ids";
 import { FeedbackBody } from "../../shared/schema";
-import { readBody } from "../errors";
+import { readBody, redact } from "../errors";
 import { rateLimit } from "../ratelimit";
 import type { AppEnv } from "../types";
 
@@ -21,8 +21,9 @@ feedback.post("/", rateLimit("RL_CREATE"), async (c) => {
       body.kind,
       isContact ? null : body.rating,
       isContact ? body.category : null,
-      body.message ?? "",
-      isContact && body.contact ? body.contact : null,
+      // 誤って書かれた編集URLなどは、保存する前に伏せ字にする
+      redact(body.message ?? ""),
+      isContact && body.contact ? redact(body.contact) : null,
       body.page ?? null,
       new Date().toISOString(),
     )

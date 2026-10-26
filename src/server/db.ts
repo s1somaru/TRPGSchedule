@@ -175,10 +175,10 @@ export async function replaceSecret(
 ): Promise<boolean> {
   const res = await db
     .prepare(
-      `UPDATE calendars SET edit_secret_hash = ?1, token_generation = token_generation + 1
+      `UPDATE calendars SET edit_secret_hash = ?1, token_generation = token_generation + 1, last_accessed_at = ?4
        WHERE id = ?2 AND edit_secret_hash = ?3`,
     )
-    .bind(newHash, id, oldHash)
+    .bind(newHash, id, oldHash, new Date().toISOString())
     .run();
   return res.meta.changes === 1;
 }

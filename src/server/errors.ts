@@ -76,6 +76,6 @@ export function handleError(err: unknown, c: Context): Response {
 /** ログに出す前に、秘密・トークン・ID の形をした文字列を伏せ字にする */
 export function redact(text: string): string {
   return text
-    .replace(/\b(sec|shr|cal|ses|prt|fdb)_[A-Za-z0-9_-]+/g, "$1_***")
+    .replace(/(sec|shr|cal|ses|prt|fdb)_[A-Za-z0-9_-]+/g, "$1_***")
     .replace(/Bearer\s+\S+/gi, "Bearer ***");
 }

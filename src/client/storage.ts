@@ -20,6 +20,8 @@ export interface StoredSession {
   id: string;
   title: string;
   lastOpenedAt: string;
+  /** この卓で最後に使ったカレンダー(次に開くとき、先にこれで試す) */
+  calendarId?: string;
 }
 
 interface Stored {
@@ -66,6 +68,10 @@ export const storage = {
     return read().sessions.sort(byRecent);
   },
 
+  findSession(id: string): StoredSession | undefined {
+    return read().sessions.find((s) => s.id === id);
+  },
+
   findCalendar(id: string): StoredCalendar | undefined {
     return read().calendars.find((c) => c.id === id);
   },
@@ -85,10 +91,12 @@ export const storage = {
     write(data);
   },
 
-  rememberSession(entry: { id: string; title: string }): void {
+  rememberSession(entry: { id: string; title: string; calendarId?: string }): void {
     const data = read();
+    const before = data.sessions.find((s) => s.id === entry.id);
+    const calendarId = entry.calendarId ?? before?.calendarId;
     data.sessions = [
-      { ...entry, lastOpenedAt: new Date().toISOString() },
+      { id: entry.id, title: entry.title, lastOpenedAt: new Date().toISOString(), ...(calendarId ? { calendarId } : {}) },
       ...data.sessions.filter((s) => s.id !== entry.id),
     ]
       .sort(byRecent)

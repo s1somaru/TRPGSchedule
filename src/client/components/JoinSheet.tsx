@@ -141,6 +141,7 @@ function ChooseForm(props: {
       <p>
         「<strong>{cal.displayName}</strong>」のカレンダーで参加します。
       </p>
+      <p class="muted">この卓の参加者には、候補日のあなたの予定(◯△×・時間・メモ)が見えます。</p>
       <label class="field">
         <span>この卓での名前(空なら「{cal.displayName}」)</span>
         <input type="text" value={name} onInput={(e) => setName(e.currentTarget.value)} placeholder="例:PC名" />

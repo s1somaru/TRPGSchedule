@@ -77,6 +77,7 @@ calendars.put("/:id/availability", rateLimit("RL_WRITE"), async (c) => {
   if (Object.keys(availability).length === 0) {
     const row = await db.getOwnedCalendar(c.env.DB, id, hash);
     if (!row) throw Errors.unauthorized();
+    touchAccess(c, row.id, row.last_accessed_at);
     return c.json(db.toCalendarResponse(row, now));
   }
   const result = await db.mergeAvailability(c.env.DB, id, hash, availability, now);

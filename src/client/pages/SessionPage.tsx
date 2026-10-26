@@ -29,6 +29,19 @@ type Load =
  */
 async function loadSession(id: string): Promise<Load> {
   try {
+    // この卓で前に使ったカレンダーがあれば、まずそれだけで試す(通信を1回で済ませる)
+    const lastId = storage.findSession(id)?.calendarId;
+    const last = lastId ? storage.findCalendar(lastId) : undefined;
+    if (last) {
+      try {
+        const session = await api.getSession(id, last.secret);
+        if (session.me?.role === "GM" || (session.me && storage.calendars().length === 1)) {
+          return { kind: "ready", session, viewer: last };
+        }
+      } catch (err) {
+        if (err instanceof ApiClientError && err.status === 404) throw err;
+      }
+    }
     const tries = await Promise.all(
       storage.calendars().map(async (cal) => {
         try {
@@ -56,7 +69,13 @@ export function SessionPage(props: { id: string }) {
 
   const refresh = () =>
     loadSession(props.id).then((result) => {
-      if (result.kind === "ready") storage.rememberSession({ id: props.id, title: result.session.title });
+      if (result.kind === "ready") {
+        storage.rememberSession({
+          id: props.id,
+          title: result.session.title,
+          ...(result.viewer ? { calendarId: result.viewer.id } : {}),
+        });
+      }
       setLoad(result);
     });
 
@@ -414,14 +433,14 @@ function ScheduleSection(props: { session: SessionResponse; today: string; onDat
   const past = session.candidateDates.filter((d) => d < today);
   const visible = showAll ? upcoming : upcoming.slice(0, FIRST_ROWS);
   const hidden = upcoming.length - visible.length;
-  const rows = showPast ? [...visible, ...past] : visible;
+  const rows = showPast ? [...past, ...visible] : visible;
 
   return (
     <section>
       {/* 絞り込み・畳む操作は表の上にまとめる(長い表の一番下まで行かなくても戻せるように) */}
       <div class="chips table-tools">
         <button type="button" class="chip" aria-pressed={!onlyOk} onClick={() => setOnlyOk(false)}>
-          すべての候補日({upcomingAll.length})
+          これからの候補日({upcomingAll.length})
         </button>
         <button type="button" class="chip" aria-pressed={onlyOk} onClick={() => setOnlyOk(true)}>
           開催できる日だけ

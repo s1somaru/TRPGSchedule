@@ -36,6 +36,11 @@ export const writeGuard: MiddlewareHandler = async (c, next) => {
   if (origin !== undefined && origin !== new URL(c.req.url).origin) {
     throw Errors.forbidden("別のサイトからの操作は受け付けていません");
   }
+  // Origin が付かない場合の備え。ブラウザが付ける Sec-Fetch-Site でも確かめる(付いていなければ通す)
+  const site = c.req.header("Sec-Fetch-Site");
+  if (site === "cross-site" || site === "same-site") {
+    throw Errors.forbidden("別のサイトからの操作は受け付けていません");
+  }
 
   const length = c.req.header("Content-Length");
   const hasBody = length !== undefined ? Number(length) > 0 : c.req.raw.body !== null;

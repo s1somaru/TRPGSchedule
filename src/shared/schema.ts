@@ -106,31 +106,37 @@ export const CreateSession = v.strictObject({
   timeWindow: v.optional(TimeRangeSchema),
 });
 
-export const PatchSession = v.strictObject({
-  title: v.optional(Title),
-  /** 卓の時間帯。null で外す */
-  timeWindow: v.optional(v.nullable(TimeRangeSchema)),
-  /** 日ごとの時間帯。毎回まるごと送る(候補日でない日は捨てる) */
-  dateTimes: v.optional(v.record(DateString, TimeRangeSchema)),
-  candidateDates: v.optional(CandidateDates),
-  /** 開催日。毎回リストをまるごと送る。空なら未確定に戻す */
-  confirmedDates: v.optional(
-    v.pipe(
-      v.array(DateString),
-      v.maxLength(LIMITS.candidateDates, `開催日は${LIMITS.candidateDates}日までです`),
-      v.check((dates) => new Set(dates).size === dates.length, "同じ開催日が重なっています"),
+export const PatchSession = v.pipe(
+  v.strictObject({
+    title: v.optional(Title),
+    /** 卓の時間帯。null で外す */
+    timeWindow: v.optional(v.nullable(TimeRangeSchema)),
+    /** 日ごとの時間帯。毎回まるごと送る(候補日でない日は捨てる) */
+    dateTimes: v.optional(v.record(DateString, TimeRangeSchema)),
+    candidateDates: v.optional(CandidateDates),
+    /** 開催日。毎回リストをまるごと送る。空なら未確定に戻す */
+    confirmedDates: v.optional(
+      v.pipe(
+        v.array(DateString),
+        v.maxLength(LIMITS.candidateDates, `開催日は${LIMITS.candidateDates}日までです`),
+        v.check((dates) => new Set(dates).size === dates.length, "同じ開催日が重なっています"),
+      ),
     ),
-  ),
-});
+  }),
+  v.check((b) => Object.values(b).some((x) => x !== undefined), "変える内容がありません"),
+);
 
 export const JoinSession = v.strictObject({
   displayName: v.optional(DisplayName),
 });
 
-export const PatchParticipant = v.strictObject({
-  role: v.optional(v.picklist(["GM", "PL"], "役割は GM か PL です")),
-  displayName: v.optional(v.nullable(DisplayName)),
-});
+export const PatchParticipant = v.pipe(
+  v.strictObject({
+    role: v.optional(v.picklist(["GM", "PL"], "役割は GM か PL です")),
+    displayName: v.optional(v.nullable(DisplayName)),
+  }),
+  v.check((b) => b.role !== undefined || b.displayName !== undefined, "変える内容がありません"),
+);
 
 // ---- 問い合わせ・評価(spec.md 3.17) ----
 
