@@ -10,6 +10,7 @@ import {
   PatchParticipant,
   PatchSession,
 } from "../../shared/schema";
+import type { TimeRange } from "../../shared/time";
 import type { ParticipantResponse } from "../../shared/types";
 import { readBearer, requireCalendar, sha256Hex, touchAccess, type AuthedCalendar } from "../auth";
 import * as db from "../db-sessions";
@@ -72,6 +73,7 @@ sessions.post("/", rateLimit("RL_CREATE"), async (c) => {
     participationId: newParticipationId(),
     calendarId: cal.id,
     displayName: body.displayName ?? null,
+    timeWindow: body.timeWindow ?? null,
     now: new Date().toISOString(),
   });
   return respondSession(c, id, cal, 201);
@@ -115,10 +117,24 @@ sessions.patch("/:id", rateLimit("RL_WRITE"), async (c) => {
     );
   }
 
+  // 卓の時間帯:渡されなければ今のまま、null なら外す
+  const timeWindow =
+    body.timeWindow === undefined
+      ? bundle.session.time_window
+        ? (JSON.parse(bundle.session.time_window) as TimeRange)
+        : null
+      : body.timeWindow;
+  // 日ごとの時間帯:候補日でなくなった日の分は捨てる
+  const dateTimesAll =
+    body.dateTimes ?? (JSON.parse(bundle.session.date_times) as Record<string, TimeRange>);
+  const dateTimes = Object.fromEntries(Object.entries(dateTimesAll).filter(([d]) => candidateDates.includes(d)));
+
   const updated = await db.updateSession(c.env.DB, bundle.session.id, {
     title: body.title ?? bundle.session.title,
     candidateDates,
     confirmedDates,
+    timeWindow,
+    dateTimes,
     now: new Date().toISOString(),
   });
   if (!updated) throw archivedError();

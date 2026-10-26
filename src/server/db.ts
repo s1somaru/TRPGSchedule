@@ -2,7 +2,7 @@
 // SQL は必ず prepare(...).bind(...) で書き、入力を SQL の文字列につなげない(spec.md 7.1)
 import { inputRange, pastCutoff } from "../shared/dates";
 import { MAX_AVAILABILITY_CHARS } from "../shared/limits";
-import type { Availability, CalendarResponse, DayEntry } from "../shared/types";
+import type { Availability, CalendarResponse, DayEntry, WeeklyTimes } from "../shared/types";
 
 export interface CalendarRow {
   id: string;
@@ -10,9 +10,10 @@ export interface CalendarRow {
   availability: string;
   last_updated_at: string;
   last_accessed_at: string;
+  weekly_times: string;
 }
 
-const COLUMNS = "id, display_name, availability, last_updated_at, last_accessed_at";
+const COLUMNS = "id, display_name, availability, last_updated_at, last_accessed_at, weekly_times";
 const SELECT_CALENDAR = `SELECT ${COLUMNS} FROM calendars WHERE id = ?1`;
 /** 本人確認つきで読む(ID と秘密のハッシュの両方が一致する行だけ) */
 const SELECT_OWNED = `SELECT ${COLUMNS} FROM calendars WHERE id = ?1 AND edit_secret_hash = ?2`;
@@ -31,6 +32,7 @@ export function toCalendarResponse(row: CalendarRow, now = new Date()): Calendar
     availability,
     inputRange: inputRange(now),
     lastUpdatedAt: row.last_updated_at,
+    weeklyTimes: JSON.parse(row.weekly_times) as WeeklyTimes,
   };
 }
 
@@ -57,18 +59,29 @@ export async function insertCalendar(
     .run();
 }
 
-/** 表示名を変える。本人確認も同じ1往復で行う。秘密が違えば null */
-export async function updateDisplayName(
+/**
+ * 表示名・曜日ごとの「いつもの時間」を変える。渡した項目だけ変える。本人確認も同じ1往復で行う。秘密が違えば null。
+ * 「最終更新」は表示名が変わったときだけ進める(いつもの時間は本人だけの設定で、卓には見えないため)
+ */
+export async function updateCalendarSettings(
   db: D1Database,
   id: string,
   secretHash: string,
-  displayName: string,
+  changes: { displayName?: string; weeklyTimes?: WeeklyTimes },
   now: string,
 ): Promise<CalendarRow | null> {
+  const name = changes.displayName ?? null;
+  const weekly = changes.weeklyTimes ? JSON.stringify(changes.weeklyTimes) : null;
   const [, selected] = await db.batch([
     db
-      .prepare("UPDATE calendars SET display_name = ?1, last_updated_at = ?2 WHERE id = ?3 AND edit_secret_hash = ?4")
-      .bind(displayName, now, id, secretHash),
+      .prepare(
+        `UPDATE calendars SET
+           display_name = COALESCE(?1, display_name),
+           weekly_times = COALESCE(?2, weekly_times),
+           last_updated_at = CASE WHEN ?1 IS NULL THEN last_updated_at ELSE ?3 END
+         WHERE id = ?4 AND edit_secret_hash = ?5`,
+      )
+      .bind(name, weekly, now, id, secretHash),
     db.prepare(SELECT_OWNED).bind(id, secretHash),
   ]);
   return (selected!.results as CalendarRow[])[0] ?? null;

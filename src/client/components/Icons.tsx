@@ -56,6 +56,16 @@ export function MemoIcon(props: IconProps) {
   );
 }
 
+/** 時計(時間帯で判定したことを示す) */
+export function ClockIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </Svg>
+  );
+}
+
 /** 戻る(左向きの矢印) */
 export function BackIcon(props: IconProps) {
   return (

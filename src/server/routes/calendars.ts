@@ -48,12 +48,12 @@ calendars.get("/:id", rateLimit("RL_READ"), async (c) => {
   return c.json(db.toCalendarResponse(row));
 });
 
-// 表示名の変更(本人確認と書き込みを1往復で)
+// 表示名・いつもの時間の変更(本人確認と書き込みを1往復で)
 calendars.patch("/:id", rateLimit("RL_WRITE"), async (c) => {
   const id = c.req.param("id");
   const hash = await ownerSecretHash(c, id);
-  const { displayName } = await readBody(c, PatchCalendar);
-  const row = await db.updateDisplayName(c.env.DB, id, hash, displayName, new Date().toISOString());
+  const changes = await readBody(c, PatchCalendar);
+  const row = await db.updateCalendarSettings(c.env.DB, id, hash, changes, new Date().toISOString());
   if (!row) throw Errors.unauthorized();
   touchAccess(c, row.id, row.last_accessed_at);
   return c.json(db.toCalendarResponse(row));

@@ -5,6 +5,8 @@ import { LIMITS } from "../../shared/limits";
 import type { Availability } from "../../shared/types";
 import { api, ApiClientError } from "../api";
 import { DatePicker } from "../components/DatePicker";
+import { TimeRangeInput } from "../components/TimeRangeInput";
+import type { TimeRange } from "../../shared/time";
 import { graphemeLength } from "../format";
 import { Link, navigate } from "../router";
 import { storage } from "../storage";
@@ -20,6 +22,7 @@ export function NewSession() {
   const [availability, setAvailability] = useState<Availability | undefined>(undefined);
   const [title, setTitle] = useState("");
   const [dates, setDates] = useState<string[]>([]);
+  const [timeWindow, setTimeWindow] = useState<TimeRange | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const today = jstNow().today;
@@ -56,7 +59,7 @@ export function NewSession() {
     setBusy(true);
     setError(null);
     try {
-      const s = await api.createSession(cal.secret, { title, candidateDates: dates });
+      const s = await api.createSession(cal.secret, { title, candidateDates: dates, ...(timeWindow ? { timeWindow } : {}) });
       try {
         sessionStorage.setItem(JUST_CREATED_KEY, s.id);
       } catch {
@@ -117,6 +120,12 @@ export function NewSession() {
         </label>
         <div class={`counter ${titleLength > LIMITS.title ? "over" : ""}`}>
           {titleLength}/{LIMITS.title}
+        </div>
+
+        <div>
+          <p class="step-title">開催する時間帯(任意)</p>
+          <p class="muted">決めておくと、参加者の空いている時間と照らして、時間が合うかを自動で判定します。</p>
+          <TimeRangeInput value={timeWindow} onChange={setTimeWindow} label="開催する時間帯" />
         </div>
 
         <h2>候補日</h2>

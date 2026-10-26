@@ -184,6 +184,8 @@ describe("記録になった卓は、SQL の段階でも変えない(卓の変�
       title: "変えた",
       candidateDates: [day(4)],
       confirmedDates: [day(4)],
+      timeWindow: null,
+      dateTimes: {},
       now: new Date().toISOString(),
     });
     expect(updated).toBe(false);

@@ -4,6 +4,7 @@
 import { addDays } from "../../shared/dates";
 import type { Availability } from "../../shared/types";
 import { monthsBetween } from "../logic";
+import { rangeLabel, shortRangeLabel } from "../../shared/time";
 import { useLongPressPaint } from "../useLongPressPaint";
 import { dateLabel, STATUS_LABEL, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 
@@ -62,7 +63,7 @@ export function CalendarGrid(props: Props) {
                   wd === 0 ? "sun" : wd === 6 ? "sat" : "",
                   date === props.today ? "today" : "",
                 ].join(" ");
-                const label = `${dateLabel(date)} ${entry ? STATUS_LABEL[entry.s] : "未入力"}${entry?.memo ? "、メモあり" : ""}`;
+                const label = `${dateLabel(date)} ${entry ? STATUS_LABEL[entry.s] : "未入力"}${entry?.time ? `、${rangeLabel(entry.time)}` : ""}${entry?.memo ? "、メモあり" : ""}`;
                 return (
                   <button
                     type="button"
@@ -80,6 +81,11 @@ export function CalendarGrid(props: Props) {
                     <span class="sym" aria-hidden="true">
                       {entry ? STATUS_SYMBOL[entry.s] : ""}
                     </span>
+                    {entry?.time && (
+                      <span class="cell-time" aria-hidden="true">
+                        {shortRangeLabel(entry.time)}
+                      </span>
+                    )}
                     {entry?.memo && (
                       <span class="memo-dot" data-memo-dot aria-hidden="true">
                         メモ

@@ -8,7 +8,9 @@ import type {
   ParticipantResponse,
   Role,
   SessionResponse,
+  WeeklyTimes,
 } from "../shared/types";
+import type { TimeRange } from "../shared/time";
 
 /** API がエラーを返したとき */
 export class ApiClientError extends Error {
@@ -63,8 +65,9 @@ export const api = {
   getCalendar: (id: string, secret: string) =>
     request<CalendarResponse>("GET", `/calendars/${id}`, { secret }),
 
-  renameCalendar: (id: string, secret: string, displayName: string) =>
-    request<CalendarResponse>("PATCH", `/calendars/${id}`, { secret, body: { displayName } }),
+  /** 表示名・曜日ごとの「いつもの時間」を変える(渡した項目だけ) */
+  patchCalendar: (id: string, secret: string, body: { displayName?: string; weeklyTimes?: WeeklyTimes }) =>
+    request<CalendarResponse>("PATCH", `/calendars/${id}`, { secret, body }),
 
   putAvailability: (
     id: string,
@@ -92,7 +95,7 @@ export const api = {
 
   // ---- 卓 ----
 
-  createSession: (secret: string, body: { title: string; candidateDates: string[] }) =>
+  createSession: (secret: string, body: { title: string; candidateDates: string[]; timeWindow?: TimeRange }) =>
     request<SessionResponse>("POST", "/sessions", { secret, body }),
 
   /** 秘密は任意。参加者の秘密なら me が入る */
@@ -102,7 +105,13 @@ export const api = {
   patchSession: (
     id: string,
     secret: string,
-    body: { title?: string; candidateDates?: string[]; confirmedDates?: string[] },
+    body: {
+      title?: string;
+      candidateDates?: string[];
+      confirmedDates?: string[];
+      timeWindow?: TimeRange | null;
+      dateTimes?: Record<string, TimeRange>;
+    },
   ) => request<SessionResponse>("PATCH", `/sessions/${id}`, { secret, body }),
 
   deleteSession: (id: string, secret: string) => request<void>("DELETE", `/sessions/${id}`, { secret }),

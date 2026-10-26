@@ -1,9 +1,9 @@
 // 卓ページの表(spec.md 6.3 ⑤)。縦に候補日、横に参加者。
 // ◯ と △ の人数は、横にスクロールしなくても見えるよう日付のすぐ右に置く
-import { judgeDate } from "../../shared/judge";
+import { cellStatus, judgeDate, windowFor } from "../../shared/judge";
 import type { SessionResponse } from "../../shared/types";
 import { dateLabel, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
-import { MemoIcon } from "./Icons";
+import { ClockIcon, MemoIcon } from "./Icons";
 
 export function SessionTable(props: {
   session: SessionResponse;
@@ -36,7 +36,8 @@ export function SessionTable(props: {
         </thead>
         <tbody>
           {props.dates.map((date) => {
-            const sum = judgeDate(people, date);
+            const window = windowFor(session, date);
+            const sum = judgeDate(people, date, window);
             const wd = weekdayOf(date);
             const classes = [
               sum.judgement === "ng" ? "row-ng" : "",
@@ -68,9 +69,16 @@ export function SessionTable(props: {
                 </td>
                 {people.map((p) => {
                   const e = p.availability[date];
+                  // 卓の時間帯と、本人の空いている時間で判定した記号
+                  const c = cellStatus(p, date, window);
                   return (
-                    <td key={p.id} class={e ? `c-${e.s}` : ""}>
-                      {e ? STATUS_SYMBOL[e.s] : ""}
+                    <td key={p.id} class={c ? `c-${c.s}` : ""}>
+                      {c ? STATUS_SYMBOL[c.s] : ""}
+                      {c?.adjusted && (
+                        <span class="clock-mark" title="時間帯が合わないため、記号を変えています">
+                          <ClockIcon size={13} title="時間帯で判定" />
+                        </span>
+                      )}
                       {e?.memo && (
                         <span class="memo-mark" title="メモあり(押すと見られます)">
                           <MemoIcon size={15} title="メモあり" />

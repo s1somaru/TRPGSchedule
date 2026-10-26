@@ -4,13 +4,15 @@ import { jstNow } from "../../shared/dates";
 import { ID_PATTERNS, newSecret } from "../../shared/ids";
 import { LIMITS } from "../../shared/limits";
 import type { JSX } from "preact";
-import type { CalendarResponse, DayEntry, MySessionsResponse, Status } from "../../shared/types";
+import { rangeLabel, type TimeRange } from "../../shared/time";
+import type { CalendarResponse, DayEntry, MySessionsResponse, Status, WeeklyTimes } from "../../shared/types";
+import { TimeRangeInput } from "../components/TimeRangeInput";
 import { api, ApiClientError } from "../api";
 import { CalendarGrid } from "../components/CalendarGrid";
 import { MemoEditor } from "../components/MemoEditor";
 import { SaveUrl } from "../components/SaveUrl";
 import { Sheet } from "../components/Sheet";
-import { confirmedSummary, graphemeLength, relativeTime, shortDate, STATUS_SYMBOL } from "../format";
+import { confirmedSummary, graphemeLength, relativeTime, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 import { BackIcon, EraserIcon, PencilIcon } from "../components/Icons";
 import { Link, navigate, navState } from "../router";
 import { editUrl, storage } from "../storage";
@@ -155,7 +157,8 @@ type Panel =
   | { kind: "menu" }
   | { kind: "saveUrl" }
   | { kind: "reissue" }
-  | { kind: "delete" };
+  | { kind: "delete" }
+  | { kind: "weekly" };
 
 function Editor(props: {
   initial: CalendarResponse;
@@ -184,13 +187,34 @@ function Editor(props: {
     api.mySessions(id, props.secret).then(setSessions, () => setSessions(null));
   }, [id, props.secret]);
 
+  /** その日の曜日の「いつもの時間」 */
+  const weeklyFor = (date: string): TimeRange | undefined =>
+    cal.weeklyTimes[String(weekdayOf(date)) as keyof WeeklyTimes];
+
   const applyPen = (date: string) => {
     const current = save.entries[date];
-    if (pen === "erase") save.change(date, null);
-    else if (pen === "memo") setPanel({ kind: "memo", date });
-    // 記号を変えてもメモは残す(1日分はまとめて送る)
-    else save.change(date, current?.memo ? { s: pen, memo: current.memo } : { s: pen });
+    if (pen === "erase") return save.change(date, null);
+    if (pen === "memo") return setPanel({ kind: "memo", date });
+    // 記号を変えてもメモは残す(1日分はまとめて送る)。
+    // ◯ か △ のとき:すでに時刻があればそのまま、なければ曜日の「いつもの時間」を書き写す。× のときは時刻を外す
+    const time = pen === "x" ? undefined : (current?.time ?? weeklyFor(date));
+    save.change(date, {
+      s: pen,
+      ...(current?.memo ? { memo: current.memo } : {}),
+      ...(time ? { time } : {}),
+    });
   };
+
+  // 最近使ったメモ(日付の新しい順に、重ならないように最大6つ)
+  const recentMemos = [
+    ...new Set(
+      Object.keys(save.entries)
+        .sort()
+        .reverse()
+        .map((d) => save.entries[d]?.memo)
+        .filter((m): m is string => Boolean(m)),
+    ),
+  ].slice(0, 6);
 
   const onTap = (date: string, memoDot: boolean) => {
     if (memoDot) setPanel({ kind: "memo", date });
@@ -246,6 +270,7 @@ function Editor(props: {
           </div>
 
           <aside class="cal-side">
+            <WeeklySummary weeklyTimes={cal.weeklyTimes} onEdit={() => setPanel({ kind: "weekly" })} />
             <SessionsSection sessions={sessions} />
 
             <h2>卓を作る</h2>
@@ -262,6 +287,8 @@ function Editor(props: {
         <MemoEditor
           date={panel.date}
           entry={save.entries[panel.date]}
+          defaultTime={weeklyFor(panel.date)}
+          recentMemos={recentMemos}
           onSave={(entry: DayEntry) => save.change(panel.date, entry)}
           onClose={close}
         />
@@ -271,7 +298,7 @@ function Editor(props: {
           current={cal.displayName}
           onClose={close}
           onSave={async (name) => {
-            const next = await api.renameCalendar(id, props.secret, name);
+            const next = await api.patchCalendar(id, props.secret, { displayName: name });
             setCal({ ...cal, displayName: next.displayName, lastUpdatedAt: next.lastUpdatedAt });
             storage.rememberCalendar({ id, secret: props.secret, displayName: next.displayName });
           }}
@@ -282,6 +309,9 @@ function Editor(props: {
           <div class="stack">
             <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "saveUrl" })}>
               このURLをもう一度保存する
+            </button>
+            <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "weekly" })}>
+              曜日ごとのいつもの時間
             </button>
             <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "reissue" })}>
               URLを作り直す
@@ -295,6 +325,17 @@ function Editor(props: {
             </button>
           </div>
         </Sheet>
+      )}
+      {panel.kind === "weekly" && (
+        <WeeklySheet
+          initial={cal.weeklyTimes}
+          onClose={close}
+          onSave={async (weeklyTimes) => {
+            const next = await api.patchCalendar(id, props.secret, { weeklyTimes });
+            setCal({ ...cal, weeklyTimes: next.weeklyTimes });
+            close();
+          }}
+        />
       )}
       {panel.kind === "saveUrl" && (
         <Sheet title="編集URLを保存" onClose={close}>
@@ -583,6 +624,100 @@ function DeleteSheet(props: { id: string; secret: string; onClose: () => void })
             やめる
           </button>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+const WEEK_KEYS = ["0", "1", "2", "3", "4", "5", "6"] as const;
+
+/** 曜日ごとの「いつもの時間」の一覧(右側・スマホでは下に出す) */
+function WeeklySummary(props: { weeklyTimes: WeeklyTimes; onEdit: () => void }) {
+  const set = WEEK_KEYS.filter((k) => props.weeklyTimes[k]);
+  return (
+    <section>
+      <h2>いつもの時間</h2>
+      {set.length === 0 ? (
+        <p class="muted">曜日ごとに「いつも空いている時間」を決めておくと、◯や△を付けたときに自動で時刻が入ります。</p>
+      ) : (
+        <ul class="list weekly-list">
+          {set.map((k) => (
+            <li key={k}>
+              <div class="row">
+                <span>{weekdayLabel(Number(k))}曜</span>
+                <span class="sub">{rangeLabel(props.weeklyTimes[k]!)}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" class="btn btn-block weekly-edit" onClick={props.onEdit}>
+        {set.length === 0 ? "いつもの時間を決める" : "いつもの時間を変える"}
+      </button>
+    </section>
+  );
+}
+
+/** 曜日ごとの「いつもの時間」を決める画面 */
+function WeeklySheet(props: {
+  initial: WeeklyTimes;
+  onClose: () => void;
+  onSave: (weeklyTimes: WeeklyTimes) => Promise<void>;
+}) {
+  const [value, setValue] = useState<WeeklyTimes>(props.initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await props.onSave(value);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存できませんでした");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet
+      title="曜日ごとのいつもの時間"
+      onClose={props.onClose}
+      footer={
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" disabled={busy} onClick={save}>
+            保存する
+          </button>
+          <button type="button" class="btn" onClick={props.onClose}>
+            やめる
+          </button>
+        </div>
+      }
+    >
+      <div class="stack">
+        <p class="muted">
+          ◯や△を付けたとき、その日に時刻が入っていなければ、ここで決めた時刻が書き写されます。あとで変えても、すでに付けた日の時刻は変わりません。
+        </p>
+        {WEEK_KEYS.map((k) => (
+          <div class="weekly-row" key={k}>
+            <span class={`weekly-day ${k === "0" ? "sun" : k === "6" ? "sat" : ""}`}>{weekdayLabel(Number(k))}</span>
+            <TimeRangeInput
+              value={value[k]}
+              label={`${weekdayLabel(Number(k))}曜のいつもの時間`}
+              onChange={(r) => {
+                const next = { ...value };
+                if (r) next[k] = r;
+                else delete next[k];
+                setValue(next);
+              }}
+            />
+          </div>
+        ))}
+        {error && (
+          <p class="error-text" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </Sheet>
   );

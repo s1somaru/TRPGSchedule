@@ -1615,3 +1615,128 @@ textarea.tall {
 #how {
   scroll-margin-top: 76px;
 }
+
+/* ===================================================================
+   時刻・時間帯(spec.md 3.18)
+   =================================================================== */
+
+/* 時間帯を選ぶ欄 */
+.time-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.time-range select {
+  font: inherit;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  flex: 1 1 120px;
+}
+
+.time-range select:disabled {
+  opacity: 0.5;
+}
+
+/* マスの時刻 */
+.day .cell-time {
+  font-size: 0.6rem;
+  line-height: 1;
+  margin-top: 2px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 時間帯のせいで記号が変わった印 */
+.clock-mark {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  display: inline-flex;
+  color: var(--muted);
+}
+
+.time-window-note {
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+
+/* 開催日の帯:次の開催日を一番大きく */
+.confirmed-banner {
+  text-align: left;
+}
+
+.confirmed-banner .banner-main {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.confirmed-banner .banner-main strong {
+  font-size: 1.6rem;
+}
+
+.confirmed-banner .banner-time {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.banner-others {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--o) 30%, transparent);
+}
+
+.banner-sub {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.banner-others .confirmed-list {
+  font-size: 0.95rem;
+}
+
+/* いつもの時間 */
+.weekly-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weekly-day {
+  flex: none;
+  width: 2em;
+  font-weight: 700;
+  text-align: center;
+}
+
+.weekly-day.sun {
+  color: var(--sun);
+}
+
+.weekly-day.sat {
+  color: var(--sat);
+}
+
+.weekly-row .time-range {
+  flex: 1;
+}
+
+.weekly-edit {
+  margin-top: 8px;
+}
+
+/* 最近使ったメモ */
+.memo-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

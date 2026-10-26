@@ -4,6 +4,7 @@ import { isValidDate } from "./dates";
 import { ID_PATTERNS } from "./ids";
 import { FEEDBACK_LIMITS, LIMITS, RAW_LIMITS } from "./limits";
 import { cleanMultiLine, cleanSingleLine } from "./text";
+import { isValidRange } from "./time";
 
 export { LIMITS };
 
@@ -33,10 +34,27 @@ export const Memo = v.pipe(
 
 export const StatusSchema = v.picklist(["o", "t", "x"], "記号は ◯ △ × のどれかです");
 
-/** 1日分の予定。メモが空のときは memo を付けない */
+/** 時間帯(06:00〜30:00、30分刻み、始まり < 終わり。終わりは省略できる) */
+export const TimeRangeSchema = v.pipe(
+  v.strictObject({ from: v.string(), to: v.optional(v.string()) }),
+  v.check(isValidRange, "時刻は 6:00〜翌6:00 の30分刻みで、始まりより後に終わるように選んでください"),
+  v.transform(({ from, to }) => (to ? { from, to } : { from })),
+);
+
+/** 1日分の予定。メモが空のときは memo を付けない。× の日には時刻を付けない */
 export const DayEntrySchema = v.pipe(
-  v.strictObject({ s: StatusSchema, memo: v.optional(Memo) }),
-  v.transform(({ s, memo }) => (memo ? { s, memo } : { s })),
+  v.strictObject({ s: StatusSchema, memo: v.optional(Memo), time: v.optional(TimeRangeSchema) }),
+  v.transform(({ s, memo, time }) => ({
+    s,
+    ...(memo ? { memo } : {}),
+    ...(time && s !== "x" ? { time } : {}),
+  })),
+);
+
+/** 曜日ごとの「いつもの時間」。毎回まるごと送る(ない曜日は「なし」) */
+export const WeeklyTimesSchema = v.record(
+  v.picklist(["0", "1", "2", "3", "4", "5", "6"], "曜日の指定が正しくありません"),
+  TimeRangeSchema,
 );
 
 /** 予定の更新。null は「未入力に戻す」 */
@@ -51,7 +69,10 @@ export const AvailabilityUpdate = v.strictObject({
 });
 
 export const CreateCalendar = v.strictObject({ displayName: DisplayName });
-export const PatchCalendar = v.strictObject({ displayName: DisplayName });
+export const PatchCalendar = v.pipe(
+  v.strictObject({ displayName: v.optional(DisplayName), weeklyTimes: v.optional(WeeklyTimesSchema) }),
+  v.check((b) => b.displayName !== undefined || b.weeklyTimes !== undefined, "変える内容がありません"),
+);
 
 export const ReissueSecret = v.strictObject({
   newSecret: v.pipe(v.string(), v.regex(ID_PATTERNS.secret, "新しい秘密の形が正しくありません")),
@@ -81,10 +102,16 @@ export const CreateSession = v.strictObject({
   title: Title,
   candidateDates: CandidateDates,
   displayName: v.optional(DisplayName),
+  /** 卓の時間帯(任意) */
+  timeWindow: v.optional(TimeRangeSchema),
 });
 
 export const PatchSession = v.strictObject({
   title: v.optional(Title),
+  /** 卓の時間帯。null で外す */
+  timeWindow: v.optional(v.nullable(TimeRangeSchema)),
+  /** 日ごとの時間帯。毎回まるごと送る(候補日でない日は捨てる) */
+  dateTimes: v.optional(v.record(DateString, TimeRangeSchema)),
   candidateDates: v.optional(CandidateDates),
   /** 開催日。毎回リストをまるごと送る。空なら未確定に戻す */
   confirmedDates: v.optional(

@@ -1,6 +1,7 @@
 // 卓まわりの DB 操作(spec.md 5.6 / 7.1 / 8.1)。
 // 「最後のGMか」「30人を超えるか」などの条件は、書き込む SQL 文の中に入れて、
 // 同時に操作されても食い違わないようにする
+import type { TimeRange } from "../shared/time";
 import type { Availability, ParticipantView, Role, SessionResponse } from "../shared/types";
 
 export interface SessionRow {
@@ -8,6 +9,8 @@ export interface SessionRow {
   title: string;
   candidate_dates: string;
   confirmed_dates: string;
+  time_window: string | null;
+  date_times: string;
   archived_at: string | null;
 }
 
@@ -30,7 +33,7 @@ export interface SessionBundle {
 }
 
 const SELECT_SESSION =
-  "SELECT id, title, candidate_dates, confirmed_dates, archived_at FROM sessions WHERE id = ?1";
+  "SELECT id, title, candidate_dates, confirmed_dates, time_window, date_times, archived_at FROM sessions WHERE id = ?1";
 
 const SELECT_PARTICIPANTS = `
   SELECT p.id, p.role, p.joined_at, p.calendar_id, p.display_name_override, p.display_name_snapshot,
@@ -121,6 +124,8 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
     title: session.title,
     candidateDates,
     confirmedDates: JSON.parse(session.confirmed_dates) as string[],
+    timeWindow: session.time_window ? (JSON.parse(session.time_window) as TimeRange) : null,
+    dateTimes: JSON.parse(session.date_times) as Record<string, TimeRange>,
     archived,
     participants,
     me: mine ? { participantId: mine.id, role: mine.role } : null,
@@ -137,14 +142,15 @@ export async function insertSession(
     participationId: string;
     calendarId: string;
     displayName: string | null;
+    timeWindow: TimeRange | null;
     now: string;
   },
 ): Promise<void> {
   await db.batch([
     db
       .prepare(
-        `INSERT INTO sessions (id, title, candidate_dates, confirmed_dates, last_date, archived_at, created_at, updated_at)
-         VALUES (?1, ?2, ?3, '[]', ?4, NULL, ?5, ?5)`,
+        `INSERT INTO sessions (id, title, candidate_dates, confirmed_dates, time_window, last_date, archived_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, '[]', ?6, ?4, NULL, ?5, ?5)`,
       )
       .bind(
         args.id,
@@ -152,6 +158,7 @@ export async function insertSession(
         JSON.stringify(args.candidateDates),
         args.candidateDates[args.candidateDates.length - 1],
         args.now,
+        args.timeWindow ? JSON.stringify(args.timeWindow) : null,
       ),
     db
       .prepare(
@@ -166,17 +173,34 @@ export async function insertSession(
 export async function updateSession(
   db: D1Database,
   id: string,
-  next: { title: string; candidateDates: string[]; confirmedDates: string[]; now: string },
+  next: {
+    title: string;
+    candidateDates: string[];
+    confirmedDates: string[];
+    timeWindow: TimeRange | null;
+    dateTimes: Record<string, TimeRange>;
+    now: string;
+  },
 ): Promise<boolean> {
   // 記録に切り替える基準の日:開催日があれば一番遅い開催日、なければ最後の候補日
   const lastDate =
     next.confirmedDates[next.confirmedDates.length - 1] ?? next.candidateDates[next.candidateDates.length - 1]!;
   const res = await db
     .prepare(
-      `UPDATE sessions SET title = ?1, candidate_dates = ?2, confirmed_dates = ?3, last_date = ?4, updated_at = ?5
+      `UPDATE sessions SET title = ?1, candidate_dates = ?2, confirmed_dates = ?3, last_date = ?4, updated_at = ?5,
+         time_window = ?7, date_times = ?8
        WHERE id = ?6 AND archived_at IS NULL`,
     )
-    .bind(next.title, JSON.stringify(next.candidateDates), JSON.stringify(next.confirmedDates), lastDate, next.now, id)
+    .bind(
+      next.title,
+      JSON.stringify(next.candidateDates),
+      JSON.stringify(next.confirmedDates),
+      lastDate,
+      next.now,
+      id,
+      next.timeWindow ? JSON.stringify(next.timeWindow) : null,
+      JSON.stringify(next.dateTimes),
+    )
     .run();
   return res.meta.changes > 0;
 }

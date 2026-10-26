@@ -1,7 +1,9 @@
 // 卓ページ(spec.md 6.3 ⑤)。URL は /s/{卓ID}。URL を知っている人なら誰でも見られる
 import { useEffect, useState } from "preact/hooks";
 import { inputRange, jstNow } from "../../shared/dates";
-import { hasActiveGm, judgeDate } from "../../shared/judge";
+import { cellStatus, hasActiveGm, judgeDate, windowFor } from "../../shared/judge";
+import { rangeLabel, type TimeRange } from "../../shared/time";
+import { TimeRangeInput } from "../components/TimeRangeInput";
 import { LIMITS } from "../../shared/limits";
 import type { Role, SessionResponse } from "../../shared/types";
 import { api, ApiClientError } from "../api";
@@ -106,27 +108,47 @@ export function SessionPage(props: { id: string }) {
   return <ActiveView session={load.session} viewer={load.viewer} onChanged={refresh} />;
 }
 
-/** 開催日の帯。1日ならそのまま、複数なら並べる(過ぎた日は薄く) */
-function ConfirmedBanner(props: { dates: string[]; today: string; archived?: boolean }) {
-  if (props.dates.length === 0) return null;
-  const cls = `confirmed-banner ${props.archived ? "archived" : ""}`;
-  if (props.dates.length === 1) {
-    return (
-      <div class={cls} role="status">
-        <strong>{dateLabel(props.dates[0]!)}</strong>に開催
-      </div>
-    );
-  }
+/**
+ * 開催日の帯。次の開催日を一番大きく(時間帯つき)、ほかの開催日は下に小さく並べる。
+ * 開催日が全部過ぎていたら、最後の開催日を「開催済み」として出す
+ */
+function ConfirmedBanner(props: {
+  session: Pick<SessionResponse, "confirmedDates" | "timeWindow" | "dateTimes">;
+  today: string;
+  archived?: boolean;
+}) {
+  const dates = props.session.confirmedDates;
+  if (dates.length === 0) return null;
+  const next = dates.find((d) => d >= props.today);
+  const main = next ?? dates[dates.length - 1]!;
+  const done = next === undefined;
+  const others = dates.filter((d) => d !== main);
+  const timeOf = (d: string) => {
+    const w = windowFor(props.session, d);
+    return w ? ` ${rangeLabel(w)}` : "";
+  };
+  const cls = `confirmed-banner ${props.archived || done ? "archived" : ""}`;
+
   return (
-    <div class={`${cls} multi`} role="status">
-      <span class="banner-label">開催日({props.dates.length}回)</span>
-      <ul class="confirmed-list">
-        {props.dates.map((d) => (
-          <li key={d} class={d < props.today ? "done" : ""}>
-            {dateLabel(d)}
-          </li>
-        ))}
-      </ul>
+    <div class={cls} role="status">
+      <span class="banner-label">{done ? "開催済み" : next && others.length > 0 ? "次の開催日" : "開催日"}</span>
+      <p class="banner-main">
+        <strong>{dateLabel(main)}</strong>
+        <span class="banner-time">{timeOf(main)}</span>
+      </p>
+      {others.length > 0 && (
+        <div class="banner-others">
+          <span class="banner-sub">ほかの開催日({others.length})</span>
+          <ul class="confirmed-list">
+            {others.map((d) => (
+              <li key={d} class={d < props.today ? "done" : ""}>
+                {dateLabel(d)}
+                {timeOf(d)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -209,7 +231,8 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
       <main class="page page-wide">
         <h1>{session.title}</h1>
 
-        <ConfirmedBanner dates={session.confirmedDates} today={today} />
+        <ConfirmedBanner session={session} today={today} />
+        {session.timeWindow && <p class="time-window-note">開催する時間帯:{rangeLabel(session.timeWindow)}</p>}
 
         {justCreated ? (
           <div class="card stack">
@@ -290,6 +313,16 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
               ? [...session.confirmedDates, date]
               : session.confirmedDates.filter((d) => d !== date);
             void act((s) => api.patchSession(session.id, s, { confirmedDates: next }));
+          }}
+          onDateTime={(date, range) => {
+            close();
+            // この日だけの時間帯。卓の時間帯と同じなら、日ごとの指定を外す
+            const next = { ...session.dateTimes };
+            const same =
+              range && session.timeWindow && range.from === session.timeWindow.from && range.to === session.timeWindow.to;
+            if (!range || same) delete next[date];
+            else next[date] = range;
+            void act((s) => api.patchSession(session.id, s, { dateTimes: next }));
           }}
         />
       )}
@@ -376,7 +409,7 @@ function ScheduleSection(props: { session: SessionResponse; today: string; onDat
 
   const upcomingAll = session.candidateDates.filter((d) => d >= today);
   const upcoming = onlyOk
-    ? upcomingAll.filter((d) => judgeDate(session.participants, d).judgement === "ok")
+    ? upcomingAll.filter((d) => judgeDate(session.participants, d, windowFor(session, d)).judgement === "ok")
     : upcomingAll;
   const past = session.candidateDates.filter((d) => d < today);
   const visible = showAll ? upcoming : upcoming.slice(0, FIRST_ROWS);
@@ -434,7 +467,7 @@ function GmTools(props: {
     <section>
       <h2>GMの操作</h2>
       <button type="button" class="btn btn-block" onClick={props.onEdit}>
-        タイトル・候補日を変える
+        タイトル・時間帯・候補日を変える
       </button>
 
       <h3 class="sub-title">参加者</h3>
@@ -483,10 +516,15 @@ function DaySheet(props: {
   isGm: boolean;
   onClose: () => void;
   onConfirm: (date: string, confirm: boolean) => void;
+  /** この日だけの時間帯を変える(undefined で卓の時間帯に戻す) */
+  onDateTime: (date: string, range: TimeRange | undefined) => void;
 }) {
-  const sum = judgeDate(props.session.participants, props.date);
+  const window = windowFor(props.session, props.date);
+  const sum = judgeDate(props.session.participants, props.date, window);
   const confirmed = props.session.confirmedDates.includes(props.date);
   const hasOthers = props.session.confirmedDates.some((d) => d !== props.date);
+  const [editingTime, setEditingTime] = useState(false);
+  const [dayTime, setDayTime] = useState<TimeRange | undefined>(window);
   const note = {
     ok: "GM全員が ◯ か △ の日です",
     ng: "GMの誰かが × の日です",
@@ -496,21 +534,34 @@ function DaySheet(props: {
   return (
     <Sheet title={dateLabel(props.date)} onClose={props.onClose}>
       <div class="stack">
+        {window && (
+          <p class="time-window-note">
+            この日の時間帯:{rangeLabel(window)}
+            {props.session.dateTimes[props.date] && <span class="muted">(この日だけ)</span>}
+          </p>
+        )}
         <p class="muted">
           {note}(◯{sum.o} △{sum.t} ×{sum.x})
         </p>
         <ul class="list">
           {props.session.participants.map((p) => {
             const e = p.availability[props.date];
+            const c = cellStatus(p, props.date, window);
             return (
               <li key={p.id}>
                 <div class="row day-row">
                   <span class={p.calendarDeleted ? "deleted" : ""}>
                     {p.role === "GM" && <span class="tag tag-gm">GM</span>}
                     {p.displayName}
+                    {e?.time && <span class="muted day-memo">空いている時間:{rangeLabel(e.time)}</span>}
+                    {c?.adjusted && (
+                      <span class="muted day-memo">
+                        本人は {STATUS_SYMBOL[e!.s]}。時間帯が{c.s === "x" ? "合わない" : "一部だけ合う"}ため {STATUS_SYMBOL[c.s]} にしています
+                      </span>
+                    )}
                     {e?.memo && <span class="memo-view muted day-memo">{e.memo}</span>}
                   </span>
-                  <span class={`day-sym ${e ? `c-${e.s}` : ""}`}>{e ? STATUS_SYMBOL[e.s] : "−"}</span>
+                  <span class={`day-sym ${c ? `c-${c.s}` : ""}`}>{c ? STATUS_SYMBOL[c.s] : "−"}</span>
                 </div>
               </li>
             );
@@ -526,6 +577,27 @@ function DaySheet(props: {
               {hasOthers ? "この日も開催日にする" : "この日に決める"}
             </button>
           ))}
+        {props.isGm &&
+          (editingTime ? (
+            <div class="card stack">
+              <p class="step-title">この日だけの時間帯</p>
+              <TimeRangeInput value={dayTime} onChange={setDayTime} label="この日だけの時間帯" />
+              <div class="btn-row">
+                <button type="button" class="btn btn-primary" onClick={() => props.onDateTime(props.date, dayTime)}>
+                  この時間帯にする
+                </button>
+                {props.session.dateTimes[props.date] && (
+                  <button type="button" class="btn" onClick={() => props.onDateTime(props.date, undefined)}>
+                    卓の時間帯に戻す
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <button type="button" class="btn-link" onClick={() => setEditingTime(true)}>
+              この日だけ時間帯を変える
+            </button>
+          ))}
         <button type="button" class="btn btn-block" onClick={props.onClose}>
           閉じる
         </button>
@@ -537,10 +609,11 @@ function DaySheet(props: {
 function EditSheet(props: {
   session: SessionResponse;
   onClose: () => void;
-  onSave: (body: { title: string; candidateDates: string[] }) => Promise<void>;
+  onSave: (body: { title: string; candidateDates: string[]; timeWindow: TimeRange | null }) => Promise<void>;
 }) {
   const [title, setTitle] = useState(props.session.title);
   const [dates, setDates] = useState(props.session.candidateDates);
+  const [timeWindow, setTimeWindow] = useState<TimeRange | undefined>(props.session.timeWindow ?? undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleLength = graphemeLength(title.trim());
@@ -550,7 +623,7 @@ function EditSheet(props: {
     setBusy(true);
     setError(null);
     try {
-      await props.onSave({ title, candidateDates: dates });
+      await props.onSave({ title, candidateDates: dates, timeWindow: timeWindow ?? null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "変えられませんでした");
       setBusy(false);
@@ -559,7 +632,7 @@ function EditSheet(props: {
 
   return (
     <Sheet
-      title="タイトル・候補日を変える"
+      title="タイトル・時間帯・候補日を変える"
       onClose={props.onClose}
       wide
       footer={
@@ -591,6 +664,10 @@ function EditSheet(props: {
             開催日({props.session.confirmedDates.map((d) => dateLabel(d)).join("、")})は候補日から外せません。外すときは、先にその日の開催を取り消してください。
           </p>
         )}
+        <div>
+          <p class="step-title">開催する時間帯(任意)</p>
+          <TimeRangeInput value={timeWindow} onChange={setTimeWindow} label="開催する時間帯" />
+        </div>
         <DatePicker initial={props.session.candidateDates} range={inputRange()} today={today} onChange={setDates} />
         {error && (
           <p class="error-text" role="alert">
@@ -681,7 +758,7 @@ function ArchiveView(props: { session: SessionResponse; viewer: StoredCalendar |
     <main class="page stack">
       <h1>{session.title}</h1>
       {session.confirmedDates.length > 0 ? (
-        <ConfirmedBanner dates={session.confirmedDates} today="9999-12-31" archived />
+        <ConfirmedBanner session={session} today="0000-01-01" archived />
       ) : (
         <div class="confirmed-banner archived">開催日は決まりませんでした</div>
       )}
