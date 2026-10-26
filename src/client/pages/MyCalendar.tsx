@@ -297,8 +297,8 @@ function Editor(props: {
         stamp={stamp}
         onChange={(next) => {
           setPen(next);
-          // 中身がまだないスタンプを選んだら、中身を決める画面を開く
-          if (next === "stamp" && isEmptyStamp(stamp)) setPanel({ kind: "stamp" });
+          // スタンプを押したら、いつでも中身を決める画面を開く(今の中身が入った状態で)
+          if (next === "stamp") setPanel({ kind: "stamp" });
         }}
         onEditStamp={() => setPanel({ kind: "stamp" })}
       />
@@ -438,8 +438,8 @@ function PenBar(props: { pen: Pen; stamp: Stamp; onChange: (pen: Pen) => void; o
         {props.pen === "stamp" && !isEmptyStamp(props.stamp) ? (
           <div class="pen-hint stamp-hint">
             <span class="stamp-summary">スタンプ:{stampSummary(props.stamp)}</span>
-            <button type="button" class="btn-link" onClick={props.onEditStamp}>
-              変える
+            <button type="button" class="btn stamp-edit" onClick={props.onEditStamp}>
+              中身を変える
             </button>
           </div>
         ) : (

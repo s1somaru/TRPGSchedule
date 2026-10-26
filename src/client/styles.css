@@ -1745,8 +1745,9 @@ textarea.tall {
 .stamp-hint {
   display: flex;
   justify-content: center;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 6px;
 }
 .stamp-summary {
   min-width: 0;
@@ -1755,9 +1756,13 @@ textarea.tall {
   white-space: nowrap;
   color: var(--text);
 }
-.stamp-hint .btn-link {
+.stamp-hint .stamp-edit {
   flex: none;
-  font-size: 0.75rem;
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .stamp-part {
   display: flex;
