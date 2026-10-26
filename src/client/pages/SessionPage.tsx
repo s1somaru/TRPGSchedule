@@ -64,8 +64,17 @@ async function loadSession(id: string): Promise<Load> {
   }
 }
 
+/** タブの名前(index.html の title と同じ) */
+const DEFAULT_TITLE = "たくよせ | TRPGの日程調整";
+
 export function SessionPage(props: { id: string }) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
+  const loadedTitle = load.kind === "ready" ? load.session.title : null;
+
+  // タブの名前を「たくよせ(卓のタイトル)」にする(URLを貼ったときのカードと同じ)
+  useEffect(() => {
+    if (loadedTitle) document.title = `たくよせ（${loadedTitle}）`;
+  }, [loadedTitle]);
 
   const refresh = () =>
     loadSession(props.id).then((result) => {
@@ -86,7 +95,11 @@ export function SessionPage(props: { id: string }) {
       if (document.visibilityState === "visible") void refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      // ほかの画面へ移ったら、タブの名前を元に戻す
+      document.title = DEFAULT_TITLE;
+    };
   }, [props.id]);
 
   if (load.kind === "loading") {
