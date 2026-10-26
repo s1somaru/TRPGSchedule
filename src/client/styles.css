@@ -1729,8 +1729,12 @@ textarea.tall {
   flex: 1;
 }
 
-.weekly-edit {
-  margin-top: 8px;
+/* カレンダーの上の「曜日ごとのいつもの時間」ボタン */
+.weekly-open {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
 }
 
 /* 最近使ったメモ */

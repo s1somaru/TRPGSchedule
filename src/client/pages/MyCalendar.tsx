@@ -13,7 +13,7 @@ import { MemoEditor } from "../components/MemoEditor";
 import { SaveUrl } from "../components/SaveUrl";
 import { Sheet } from "../components/Sheet";
 import { confirmedSummary, graphemeLength, relativeTime, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
-import { BackIcon, EraserIcon, PencilIcon, StampIcon } from "../components/Icons";
+import { BackIcon, ClockIcon, EraserIcon, PencilIcon, StampIcon } from "../components/Icons";
 import { StampEditor, stampSummary } from "../components/StampEditor";
 import { applyStamp, isEmptyStamp, stampFromEntry, type Stamp } from "../logic";
 import { Link, navigate, navState } from "../router";
@@ -269,6 +269,10 @@ function Editor(props: {
           <div class="cal-main">
             <SaveIndicator state={save.state} onRetry={save.retry} />
             {save.notice && <p class="muted">{save.notice}</p>}
+            <button type="button" class="btn weekly-open" onClick={() => setPanel({ kind: "weekly" })}>
+              <ClockIcon size={18} />
+              {Object.keys(cal.weeklyTimes).length === 0 ? "曜日ごとのいつもの時間を決める" : "曜日ごとのいつもの時間を変える"}
+            </button>
 
             <CalendarGrid
               availability={save.entries}
@@ -281,7 +285,7 @@ function Editor(props: {
           </div>
 
           <aside class="cal-side">
-            <WeeklySummary weeklyTimes={cal.weeklyTimes} onEdit={() => setPanel({ kind: "weekly" })} />
+            <WeeklySummary weeklyTimes={cal.weeklyTimes} />
             <SessionsSection sessions={sessions} />
 
             <h2>卓を作る</h2>
@@ -349,9 +353,6 @@ function Editor(props: {
           <div class="stack">
             <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "saveUrl" })}>
               このURLをもう一度保存する
-            </button>
-            <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "weekly" })}>
-              曜日ごとのいつもの時間
             </button>
             <button type="button" class="btn btn-block" onClick={() => setPanel({ kind: "reissue" })}>
               URLを作り直す
@@ -682,28 +683,22 @@ function DeleteSheet(props: { id: string; secret: string; onClose: () => void })
 const WEEK_KEYS = ["0", "1", "2", "3", "4", "5", "6"] as const;
 
 /** 曜日ごとの「いつもの時間」の一覧(右側・スマホでは下に出す) */
-function WeeklySummary(props: { weeklyTimes: WeeklyTimes; onEdit: () => void }) {
+function WeeklySummary(props: { weeklyTimes: WeeklyTimes }) {
   const set = WEEK_KEYS.filter((k) => props.weeklyTimes[k]);
+  if (set.length === 0) return null;
   return (
     <section>
       <h2>いつもの時間</h2>
-      {set.length === 0 ? (
-        <p class="muted">曜日ごとに「いつも空いている時間」を決めておくと、◯や△を付けたときに自動で時刻が入ります。</p>
-      ) : (
-        <ul class="list weekly-list">
-          {set.map((k) => (
-            <li key={k}>
-              <div class="row">
-                <span>{weekdayLabel(Number(k))}曜</span>
-                <span class="sub">{rangeLabel(props.weeklyTimes[k]!)}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <button type="button" class="btn btn-block weekly-edit" onClick={props.onEdit}>
-        {set.length === 0 ? "いつもの時間を決める" : "いつもの時間を変える"}
-      </button>
+      <ul class="list weekly-list">
+        {set.map((k) => (
+          <li key={k}>
+            <div class="row">
+              <span>{weekdayLabel(Number(k))}曜</span>
+              <span class="sub">{rangeLabel(props.weeklyTimes[k]!)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
