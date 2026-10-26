@@ -46,6 +46,17 @@ export function PencilIcon(props: IconProps) {
   );
 }
 
+/** スタンプ(はんこ) */
+export function StampIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9 3h6v4l-1 5h-4L9 7z" />
+      <path d="M4 15h16v3H4z" />
+      <path d="M6 21h12" />
+    </Svg>
+  );
+}
+
 /** メモ(吹き出し) */
 export function MemoIcon(props: IconProps) {
   return (

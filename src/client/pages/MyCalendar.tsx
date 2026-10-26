@@ -13,7 +13,9 @@ import { MemoEditor } from "../components/MemoEditor";
 import { SaveUrl } from "../components/SaveUrl";
 import { Sheet } from "../components/Sheet";
 import { confirmedSummary, graphemeLength, relativeTime, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
-import { BackIcon, EraserIcon, PencilIcon } from "../components/Icons";
+import { BackIcon, EraserIcon, PencilIcon, StampIcon } from "../components/Icons";
+import { StampEditor, stampSummary } from "../components/StampEditor";
+import { applyStamp, isEmptyStamp, stampFromEntry, type Stamp } from "../logic";
 import { Link, navigate, navState } from "../router";
 import { editUrl, storage } from "../storage";
 import { useAutosave } from "../useAutosave";
@@ -148,7 +150,7 @@ function InvalidUrl(props: { id: string }) {
   );
 }
 
-type Pen = Status | "erase" | "memo";
+type Pen = Status | "erase" | "memo" | "stamp";
 
 type Panel =
   | { kind: "none" }
@@ -158,7 +160,8 @@ type Panel =
   | { kind: "saveUrl" }
   | { kind: "reissue" }
   | { kind: "delete" }
-  | { kind: "weekly" };
+  | { kind: "weekly" }
+  | { kind: "stamp" };
 
 function Editor(props: {
   initial: CalendarResponse;
@@ -169,6 +172,8 @@ function Editor(props: {
   const id = props.initial.id;
   const [cal, setCal] = useState(props.initial);
   const [pen, setPen] = useState<Pen>("o");
+  // スタンプペンの中身(spec.md 3.19)。この画面を開いている間だけ覚えておく
+  const [stamp, setStamp] = useState<Stamp>({});
   const [panel, setPanel] = useState<Panel>({ kind: "none" });
   const [sessions, setSessions] = useState<MySessionsResponse | null>(null);
   const today = jstNow().today;
@@ -195,6 +200,12 @@ function Editor(props: {
     const current = save.entries[date];
     if (pen === "erase") return save.change(date, null);
     if (pen === "memo") return setPanel({ kind: "memo", date });
+    if (pen === "stamp") {
+      // 「変えない」の項目は今の内容のまま。記号を変えないスタンプは、記号のない日には付けない
+      const next = applyStamp(current, stamp);
+      if (next) save.change(date, next);
+      return;
+    }
     // 記号を変えてもメモは残す(1日分はまとめて送る)。
     // ◯ か △ のとき:すでに時刻があればそのまま、なければ曜日の「いつもの時間」を書き写す。× のときは時刻を外す
     const time = pen === "x" ? undefined : (current?.time ?? weeklyFor(date));
@@ -281,7 +292,16 @@ function Editor(props: {
         </div>
       </main>
 
-      <PenBar pen={pen} onChange={setPen} />
+      <PenBar
+        pen={pen}
+        stamp={stamp}
+        onChange={(next) => {
+          setPen(next);
+          // 中身がまだないスタンプを選んだら、中身を決める画面を開く
+          if (next === "stamp" && isEmptyStamp(stamp)) setPanel({ kind: "stamp" });
+        }}
+        onEditStamp={() => setPanel({ kind: "stamp" })}
+      />
 
       {panel.kind === "memo" && (
         <MemoEditor
@@ -290,7 +310,27 @@ function Editor(props: {
           defaultTime={weeklyFor(panel.date)}
           recentMemos={recentMemos}
           onSave={(entry: DayEntry) => save.change(panel.date, entry)}
+          onMakeStamp={(entry: DayEntry) => {
+            setStamp(stampFromEntry(entry));
+            setPen("stamp");
+          }}
           onClose={close}
+        />
+      )}
+      {panel.kind === "stamp" && (
+        <StampEditor
+          initial={stamp}
+          recentMemos={recentMemos}
+          onSave={(next) => {
+            setStamp(next);
+            setPen("stamp");
+            close();
+          }}
+          onClose={() => {
+            // 中身を決めずに閉じたら、元の ◯ ペンに戻す
+            if (isEmptyStamp(stamp)) setPen("o");
+            close();
+          }}
         />
       )}
       {panel.kind === "rename" && (
@@ -388,15 +428,25 @@ const PENS: { pen: Pen; sym: string | JSX.Element; label: string }[] = [
   { pen: "x", sym: STATUS_SYMBOL.x, label: "できない" },
   { pen: "erase", sym: <EraserIcon size={24} />, label: "消す" },
   { pen: "memo", sym: <PencilIcon size={22} />, label: "メモ" },
+  { pen: "stamp", sym: <StampIcon size={22} />, label: "スタンプ" },
 ];
 
-function PenBar(props: { pen: Pen; onChange: (pen: Pen) => void }) {
+function PenBar(props: { pen: Pen; stamp: Stamp; onChange: (pen: Pen) => void; onEditStamp: () => void }) {
   return (
     <div class="pen-bar">
       <div class="inner">
-        <div class="pen-hint">
-          {props.pen === "memo" ? "日をタップしてメモを書きます" : "日をタップ。長押ししてなぞると、まとめて付きます"}
-        </div>
+        {props.pen === "stamp" && !isEmptyStamp(props.stamp) ? (
+          <div class="pen-hint stamp-hint">
+            <span class="stamp-summary">スタンプ:{stampSummary(props.stamp)}</span>
+            <button type="button" class="btn-link" onClick={props.onEditStamp}>
+              変える
+            </button>
+          </div>
+        ) : (
+          <div class="pen-hint">
+            {props.pen === "memo" ? "日をタップしてメモを書きます" : "日をタップ。長押ししてなぞると、まとめて付きます"}
+          </div>
+        )}
         <div class="pens" role="group" aria-label="入力ペン">
           {PENS.map((p) => (
             <button

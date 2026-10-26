@@ -18,6 +18,8 @@ export function MemoEditor(props: {
   /** 最近使ったメモ */
   recentMemos: string[];
   onSave: (entry: DayEntry) => void;
+  /** この日の内容をスタンプにする(保存してから、スタンプペンに切り替える) */
+  onMakeStamp?: (entry: DayEntry) => void;
   onClose: () => void;
 }) {
   const [status, setStatus] = useState<Status | null>(props.entry?.s ?? null);
@@ -27,14 +29,22 @@ export function MemoEditor(props: {
   const tooLong = length > LIMITS.memo;
   const canHaveTime = status === "o" || status === "t";
 
-  const save = () => {
-    if (!status || tooLong) return;
+  const current = (): DayEntry | null => {
+    if (!status || tooLong) return null;
     const text = memo.trim();
-    props.onSave({
-      s: status,
-      ...(text ? { memo: text } : {}),
-      ...(time && canHaveTime ? { time } : {}),
-    });
+    return { s: status, ...(text ? { memo: text } : {}), ...(time && canHaveTime ? { time } : {}) };
+  };
+  const save = () => {
+    const entry = current();
+    if (!entry) return;
+    props.onSave(entry);
+    props.onClose();
+  };
+  const makeStamp = () => {
+    const entry = current();
+    if (!entry) return;
+    props.onSave(entry);
+    props.onMakeStamp?.(entry);
     props.onClose();
   };
 
@@ -103,6 +113,11 @@ export function MemoEditor(props: {
           {length}/{LIMITS.memo}
         </div>
         {!status && <p class="muted">先に ◯ △ × のどれかを選んでください。</p>}
+        {props.onMakeStamp && status && (
+          <button type="button" class="btn-link stamp-make" disabled={tooLong} onClick={makeStamp}>
+            この日の内容をスタンプにして、ほかの日にも付ける
+          </button>
+        )}
       </div>
     </Sheet>
   );

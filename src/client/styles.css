@@ -547,7 +547,7 @@ a:focus-visible {
 
 .pens {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 6px;
 }
 
@@ -1739,4 +1739,34 @@ textarea.tall {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---- スタンプ(spec.md 3.19) ---- */
+.stamp-hint {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+}
+.stamp-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.stamp-hint .btn-link {
+  flex: none;
+  font-size: 0.75rem;
+}
+.stamp-part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stamp-part .step-title {
+  margin: 0;
+}
+.stamp-make {
+  align-self: flex-start;
 }

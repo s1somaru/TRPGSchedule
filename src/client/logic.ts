@@ -1,7 +1,8 @@
 // 画面で使う計算だけの部分。画面の部品やブラウザの機能に頼らないので、そのままテストできる
 import { addDays } from "../shared/dates";
 import { ID_PATTERNS } from "../shared/ids";
-import type { Availability, DayEntry } from "../shared/types";
+import type { TimeRange } from "../shared/time";
+import type { Availability, DayEntry, Status } from "../shared/types";
 import { weekdayOf } from "./format";
 
 /** 貼り付けられた編集URLから、カレンダーIDと秘密を取り出す。形が違えば null */
@@ -95,4 +96,44 @@ export function toggleDay(s: PickerState, date: string): PickerState {
  */
 export function setDayPicked(s: PickerState, date: string, picked: boolean): PickerState {
   return computePicked(s).includes(date) === picked ? s : toggleDay(s, date);
+}
+
+// ---- スタンプ(spec.md 3.19) ----
+
+/**
+ * スタンプの中身。項目ごとに「変えない(undefined)」「これにする」「消す(null)」を選べる
+ * - s:記号(消すことはできない)
+ * - time:空いている時間
+ * - memo:メモ
+ */
+export interface Stamp {
+  s?: Status;
+  time?: TimeRange | null;
+  memo?: string | null;
+}
+
+/**
+ * 1日にスタンプを当てはめた結果。記号が決まらない(記号のない日に「記号は変えない」スタンプ)ときは undefined(その日は変えない)。
+ * × の日には時刻を付けない
+ */
+export function applyStamp(current: DayEntry | undefined, stamp: Stamp): DayEntry | undefined {
+  const s = stamp.s ?? current?.s;
+  if (!s) return undefined;
+  const time = stamp.time === undefined ? current?.time : (stamp.time ?? undefined);
+  const memo = stamp.memo === undefined ? current?.memo : (stamp.memo ?? undefined);
+  return {
+    s,
+    ...(memo ? { memo } : {}),
+    ...(time && s !== "x" ? { time } : {}),
+  };
+}
+
+/** その日の内容を、まるごと写すスタンプにする */
+export function stampFromEntry(entry: DayEntry): Stamp {
+  return { s: entry.s, time: entry.time ?? null, memo: entry.memo ?? null };
+}
+
+/** スタンプが何も変えない(全部「変えない」)か */
+export function isEmptyStamp(stamp: Stamp): boolean {
+  return stamp.s === undefined && stamp.time === undefined && stamp.memo === undefined;
 }
