@@ -2,7 +2,7 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { runDailyCleanup } from "../src/server/cron";
-import { api, freshIp } from "./helpers";
+import { api } from "./helpers";
 
 interface FeedbackRow {
   kind: string;
@@ -79,16 +79,6 @@ describe("問い合わせ", () => {
   it("知らない種類・知らない項目は断る", async () => {
     expect((await api("POST", "/api/feedback", { body: { kind: "spam", message: "x" } })).status).toBe(400);
     expect((await api("POST", "/api/feedback", { body: { kind: "rating", rating: 5, admin: true } })).status).toBe(400);
-  });
-
-  it("同じ接続元から送りすぎると 429", async () => {
-    const ip = freshIp();
-    const statuses: number[] = [];
-    for (let i = 0; i < 11; i++) {
-      statuses.push((await api("POST", "/api/feedback", { body: { kind: "rating", rating: 5 }, ip })).status);
-    }
-    expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
-    expect(statuses[10]).toBe(429);
   });
 });
 

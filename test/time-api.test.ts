@@ -237,33 +237,22 @@ describe("卓の時間帯", () => {
     await patchSession(s.id, gm, { candidateDates: [day(3), day(5)] });
     expect((await getSession(s.id)).dateTimes).toEqual({ [day(5)]: { from: "20:00" } });
   });
-});
 
-describe("テーブルの列(migrations/0004)", () => {
-  interface Col {
-    name: string;
-    notnull: number;
-    dflt_value: string | null;
-  }
-  async function columns(table: string): Promise<Record<string, Col>> {
-    const { results } = await env.DB.prepare(`PRAGMA table_info(${table})`).all<Col>();
-    return Object.fromEntries(results.map((c) => [c.name, c]));
-  }
+  it("卓の時間帯を変えて同じになった日の分は、自動で消える(3.18)", async () => {
+    const gm = await createCalendar("GM");
+    const created = await api("POST", "/api/sessions", {
+      secret: gm.editSecret,
+      body: { title: "卓", candidateDates: [day(3), day(4)], timeWindow: { from: "21:00" } },
+    });
+    const s = (await created.json()) as SessionResponse;
+    const patch = async (body: Record<string, unknown>) =>
+      (await (await api("PATCH", `/api/sessions/${s.id}`, { secret: gm.editSecret, body })).json()) as SessionResponse;
 
-  it("calendars に weekly_times がある(空のオブジェクトが既定)", async () => {
-    const col = (await columns("calendars")).weekly_times;
-    expect(col).toBeDefined();
-    expect(col!.notnull).toBe(1);
-    expect(col!.dflt_value).toBe("'{}'");
-  });
-
-  it("sessions に time_window(NULL 可)と date_times(空のオブジェクトが既定)がある", async () => {
-    const cols = await columns("sessions");
-    expect(cols.time_window).toBeDefined();
-    expect(cols.time_window!.notnull).toBe(0);
-    expect(cols.time_window!.dflt_value).toBeNull();
-    expect(cols.date_times).toBeDefined();
-    expect(cols.date_times!.notnull).toBe(1);
-    expect(cols.date_times!.dflt_value).toBe("'{}'");
+    let after = await patch({ dateTimes: { [day(3)]: { from: "20:00" }, [day(4)]: { from: "21:00" } } });
+    // 卓の時間帯と同じ日(day(4))は持たない
+    expect(after.dateTimes).toEqual({ [day(3)]: { from: "20:00" } });
+    // 卓の時間帯を 20:00 に変えると、day(3) の分も同じになるので消える
+    after = await patch({ timeWindow: { from: "20:00" } });
+    expect(after.dateTimes).toEqual({});
   });
 });

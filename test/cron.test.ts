@@ -159,6 +159,24 @@ describe("古いカレンダーの削除", () => {
     expect(view.participants.map((p) => p.displayName)).toContain("PC名");
   });
 
+  it("唯一のGMのカレンダーでも、止めずに削除する(卓はGMのいない状態で残る)", async () => {
+    const gm = await createCalendar("昔のGM");
+    const pl = await createCalendar("PL");
+    await setLastAccessed(gm.id, new Date(NOW.getTime() - 366 * 864e5).toISOString());
+    const s = await seedSession({
+      lastDate: addDays(today, 30),
+      members: [{ calendarId: gm.id, role: "GM" }, { calendarId: pl.id, role: "PL" }],
+    });
+
+    await runDailyCleanup(env.DB, NOW);
+    const left = await env.DB.prepare("SELECT id FROM calendars WHERE id = ?1").bind(gm.id).first();
+    expect(left).toBeNull();
+
+    // 卓は残り、GM は「削除済み」の参加者として見える
+    const view = await (await api("GET", `/api/sessions/${s}`)).json<SessionResponse>();
+    const gone = view.participants.find((p) => p.role === "GM")!;
+    expect(gone).toMatchObject({ displayName: "昔のGM", calendarDeleted: true });
+  });
 });
 
 describe("Worker の定期処理の入口", () => {

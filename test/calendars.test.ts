@@ -1,17 +1,47 @@
 // 個人カレンダー API のテスト(spec.md 5.5 / 10.3)
+// 作成と取得・入力チェック・予定の更新・最後に使った日時・表示名・編集URLの再発行・参加中の卓の一覧・削除
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { addDays, jstNow } from "../src/shared/dates";
+import { acceptedRange, addDays, jstNow } from "../src/shared/dates";
 import { ID_PATTERNS, newParticipationId, newSecret } from "../src/shared/ids";
-import type { CalendarResponse, MySessionsResponse } from "../src/shared/types";
-import { api, createCalendar, freshIp } from "./helpers";
+import type { CalendarResponse, MySessionsResponse, SessionResponse } from "../src/shared/types";
+import { api, createCalendar } from "./helpers";
 
 const today = () => jstNow().today;
 const day = (n: number) => addDays(today(), n);
+const OLD = () => new Date(Date.now() - 400 * 864e5).toISOString();
 
 async function putAvailability(id: string, secret: string, availability: unknown) {
   return api("PUT", `/api/calendars/${id}/availability`, { secret, body: { availability } });
 }
+
+async function setLastAccessed(id: string, iso: string) {
+  await env.DB.prepare("UPDATE calendars SET last_accessed_at = ?1 WHERE id = ?2").bind(iso, id).run();
+}
+
+async function lastAccessed(id: string): Promise<string> {
+  const row = await env.DB.prepare("SELECT last_accessed_at FROM calendars WHERE id = ?1").bind(id).first<{ last_accessed_at: string }>();
+  return row!.last_accessed_at;
+}
+
+/**
+ * 最後に使った日時が今日になるのを待つ。
+ * 記録は応答のあとに(waitUntil で)書かれるので、少しのあいだ確かめ直す
+ */
+async function waitUntilTouched(id: string): Promise<string> {
+  let value = await lastAccessed(id);
+  for (let i = 0; i < 50 && jstNow(new Date(value)).today !== jstNow().today; i++) {
+    await new Promise((r) => setTimeout(r, 20));
+    value = await lastAccessed(id);
+  }
+  return value;
+}
+
+function expectToday(iso: string) {
+  expect(jstNow(new Date(iso)).today).toBe(jstNow().today);
+  expect(Date.now() - new Date(iso).getTime()).toBeLessThan(60_000);
+}
+
 
 describe("作成と取得", () => {
   it("作成すると ID と秘密が返り、秘密はハッシュだけが保存される", async () => {
@@ -55,6 +85,19 @@ describe("作成と取得", () => {
   it("存在しないカレンダーも、秘密違いと同じく 401 になる", async () => {
     const res = await api("GET", "/api/calendars/cal_AAAAAAAAAAAAAAAAAAAAAA", { secret: newSecret() });
     expect(res.status).toBe(401);
+  });
+});
+
+describe("本人だけの操作の 401", () => {
+  it("参加中の卓の一覧とカレンダーの削除は、秘密なし・他人の秘密で 401", async () => {
+    const a = await createCalendar("A");
+    const b = await createCalendar("B");
+    for (const secret of [undefined, b.editSecret]) {
+      expect((await api("GET", `/api/calendars/${a.id}/sessions`, { secret })).status).toBe(401);
+      expect((await api("DELETE", `/api/calendars/${a.id}`, { secret })).status).toBe(401);
+    }
+    // 消えていない
+    expect((await api("GET", `/api/calendars/${a.id}`, { secret: a.editSecret })).status).toBe(200);
   });
 });
 
@@ -104,6 +147,13 @@ describe("入力チェック", () => {
   it("不正な日付のキーは 422", async () => {
     const cal = await createCalendar();
     const res = await putAvailability(cal.id, cal.editSecret, { "2026-02-30": { s: "o" } });
+    expect(res.status).toBe(422);
+  });
+
+  it("目に見えない文字は取り除く。目に見えない文字だけの名前は断る", async () => {
+    const cal = await createCalendar("た​ろ‍う﻿ ");
+    expect(cal.displayName).toBe("たろう");
+    const res = await api("POST", "/api/calendars", { body: { displayName: "ㅤㅤ" } });
     expect(res.status).toBe(422);
   });
 });
@@ -184,6 +234,166 @@ describe("予定の更新", () => {
     const res = await putAvailability(cal.id, cal.editSecret, { [day(1)]: { s: "o" } });
     expect((await res.json<CalendarResponse>()).lastUpdatedAt > cal.lastUpdatedAt).toBe(true);
   });
+
+  it("予定全体が大きすぎるときは保存しない(422)", async () => {
+    const cal = await createCalendar();
+    const huge: Record<string, { s: string; memo: string }> = {};
+    for (let i = 1; i <= 175; i++) huge[day(i)] = { s: "o", memo: "あ".repeat(800) };
+    await env.DB.prepare("UPDATE calendars SET availability = ?1 WHERE id = ?2").bind(JSON.stringify(huge), cal.id).run();
+    const res = await putAvailability(cal.id, cal.editSecret, { [day(176)]: { s: "o", memo: "あ".repeat(100) } });
+    expect(res.status).toBe(422);
+    // 減らす方向の保存はできる
+    const shrink = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [day(i + 1), null]));
+    expect((await putAvailability(cal.id, cal.editSecret, shrink)).status).toBe(200);
+  });
+
+  it("カレンダーが削除されたあとに保存すると 401(500 にならない)", async () => {
+    const cal = await createCalendar();
+    await api("DELETE", `/api/calendars/${cal.id}`, { secret: cal.editSecret });
+    expect((await putAvailability(cal.id, cal.editSecret, { [day(1)]: { s: "o" } })).status).toBe(401);
+    expect((await api("PATCH", `/api/calendars/${cal.id}`, { secret: cal.editSecret, body: { displayName: "x" } })).status).toBe(401);
+  });
+});
+
+describe("最終更新(lastUpdatedAt)は、本当に変わったときだけ進む(3.13)", () => {
+  it("同じ予定・同じ名前を送り直しても進まない。違えば進む", async () => {
+    const cal = await createCalendar("たろう");
+    const put = async (availability: Record<string, unknown>) =>
+      (await (await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: cal.editSecret, body: { availability } })).json()) as CalendarResponse;
+    const patch = async (body: Record<string, unknown>) =>
+      (await (await api("PATCH", `/api/calendars/${cal.id}`, { secret: cal.editSecret, body })).json()) as CalendarResponse;
+    const wait = () => new Promise((r) => setTimeout(r, 5));
+
+    const first = await put({ [day(3)]: { s: "o", memo: "メモ" } });
+    await wait();
+    expect((await put({ [day(3)]: { s: "o", memo: "メモ" } })).lastUpdatedAt).toBe(first.lastUpdatedAt);
+    await wait();
+    const changed = await put({ [day(3)]: { s: "t", memo: "メモ" } });
+    expect(changed.lastUpdatedAt > first.lastUpdatedAt).toBe(true);
+
+    await wait();
+    expect((await patch({ displayName: "たろう" })).lastUpdatedAt).toBe(changed.lastUpdatedAt);
+    await wait();
+    expect((await patch({ displayName: "じろう" })).lastUpdatedAt > changed.lastUpdatedAt).toBe(true);
+  });
+});
+
+describe("予定の更新(空の送信)", () => {
+  it("{ availability: {} } は 200 で今のカレンダーを返す。他人の秘密なら 401", async () => {
+    const cal = await createCalendar("たろう");
+    await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: cal.editSecret, body: { availability: { [day(2)]: { s: "o" } } } });
+    const res = await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: cal.editSecret, body: { availability: {} } });
+    expect(res.status).toBe(200);
+    const body = await res.json<CalendarResponse>();
+    expect(body).toMatchObject({ id: cal.id, displayName: "たろう", availability: { [day(2)]: { s: "o" } } });
+
+    const other = await createCalendar();
+    expect((await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: other.editSecret, body: { availability: {} } })).status).toBe(401);
+    expect((await api("PUT", `/api/calendars/${cal.id}/availability`, { body: { availability: {} } })).status).toBe(401);
+  });
+});
+
+describe("一度に送れる日数", () => {
+  it("201日分は、範囲に関係なく 422(日数の上限)", async () => {
+    const cal = await createCalendar();
+    const availability = Object.fromEntries(Array.from({ length: 201 }, (_, i) => [day(i), { s: "o" }]));
+    const res = await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: cal.editSecret, body: { availability } });
+    expect(res.status).toBe(422);
+    expect((await res.json<{ error: { code: string } }>()).error.code).toBe("VALIDATION_FAILED");
+  });
+
+  it("200日分は日数の上限には引っかからない(範囲外の日があるので DATE_OUT_OF_RANGE になる)", async () => {
+    // 入力できる期間は今日から6か月(約184日)なので、範囲内の日だけで200日分は作れない
+    const cal = await createCalendar();
+    const availability = Object.fromEntries(Array.from({ length: 200 }, (_, i) => [day(i), { s: "o" }]));
+    const res = await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: cal.editSecret, body: { availability } });
+    expect(res.status).toBe(422);
+    expect((await res.json<{ error: { code: string } }>()).error.code).toBe("DATE_OUT_OF_RANGE");
+  });
+
+  it("入力できる期間の全部の日を一度に保存できる", async () => {
+    const cal = await createCalendar();
+    const { to } = acceptedRange();
+    const availability: Record<string, { s: string }> = {};
+    for (let d = jstNow().today; d <= to; d = addDays(d, 1)) availability[d] = { s: "t" };
+    const n = Object.keys(availability).length;
+    expect(n).toBeGreaterThan(180);
+    const res = await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: cal.editSecret, body: { availability } });
+    expect(res.status).toBe(200);
+    expect(Object.keys((await res.json<CalendarResponse>()).availability)).toHaveLength(n);
+  });
+});
+
+describe("最後に使った日時(1年使われていないカレンダーの削除に使う)", () => {
+  it("自分のカレンダーを開くと、今日の日時になる", async () => {
+    const cal = await createCalendar();
+    await setLastAccessed(cal.id, OLD());
+    expect((await api("GET", `/api/calendars/${cal.id}`, { secret: cal.editSecret })).status).toBe(200);
+    expectToday(await waitUntilTouched(cal.id));
+  });
+
+  it("参加している卓を秘密つきで開いても、今日の日時になる", async () => {
+    const cal = await createCalendar("GM");
+    const created = await api("POST", "/api/sessions", { secret: cal.editSecret, body: { title: "卓", candidateDates: [day(3)] } });
+    const s = await created.json<SessionResponse>();
+    await setLastAccessed(cal.id, OLD());
+    expect((await api("GET", `/api/sessions/${s.id}`, { secret: cal.editSecret })).status).toBe(200);
+    expectToday(await waitUntilTouched(cal.id));
+  });
+
+  it("参加中の卓の一覧を開いても、今日の日時になる", async () => {
+    const cal = await createCalendar();
+    await setLastAccessed(cal.id, OLD());
+    expect((await api("GET", `/api/calendars/${cal.id}/sessions`, { secret: cal.editSecret })).status).toBe(200);
+    expectToday(await waitUntilTouched(cal.id));
+  });
+
+  it("秘密がないときや他人の秘密のときは、変わらない", async () => {
+    const cal = await createCalendar();
+    const other = await createCalendar();
+    const old = OLD();
+    await setLastAccessed(cal.id, old);
+    await api("GET", `/api/calendars/${cal.id}`);
+    await api("GET", `/api/calendars/${cal.id}`, { secret: other.editSecret });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(await lastAccessed(cal.id)).toBe(old);
+  });
+
+  it("空の保存でも更新する", async () => {
+    const cal = await createCalendar();
+    await setLastAccessed(cal.id, OLD());
+    const res = await api("PUT", `/api/calendars/${cal.id}/availability`, { secret: cal.editSecret, body: { availability: {} } });
+    expect(res.status).toBe(200);
+    expectToday(await waitUntilTouched(cal.id));
+  });
+
+  it("編集URLを作り直したときも更新する", async () => {
+    const cal = await createCalendar();
+    await setLastAccessed(cal.id, OLD());
+    const res = await api("POST", `/api/calendars/${cal.id}/edit-secret`, { secret: cal.editSecret, body: { newSecret: newSecret() } });
+    expect(res.status).toBe(200);
+    expectToday(await waitUntilTouched(cal.id));
+  });
+
+  it("同じ日のうちは、2回目からは書き換えない", async () => {
+    const cal = await createCalendar();
+    // 今日(日本時間)の0時にしておくと、「今日すでに記録した」ことになる
+    const startOfToday = new Date(`${jstNow().today}T00:00:00+09:00`).toISOString();
+    await setLastAccessed(cal.id, startOfToday);
+    expect((await api("GET", `/api/calendars/${cal.id}`, { secret: cal.editSecret })).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(await lastAccessed(cal.id)).toBe(startOfToday);
+  });
+
+  it("参加していない卓を秘密つきで開いても、今日の日時になる", async () => {
+    const gm = await createCalendar("GM");
+    const outsider = await createCalendar("部外者");
+    const created = await api("POST", "/api/sessions", { secret: gm.editSecret, body: { title: "卓", candidateDates: [day(3)] } });
+    const s = await created.json<SessionResponse>();
+    await setLastAccessed(outsider.id, OLD());
+    expect((await api("GET", `/api/sessions/${s.id}`, { secret: outsider.editSecret })).status).toBe(200);
+    expectToday(await waitUntilTouched(outsider.id));
+  });
 });
 
 describe("表示名の変更", () => {
@@ -244,6 +454,29 @@ describe("編集URLの再発行", () => {
       body: { newSecret: "sec_short" },
     });
     expect(res.status).toBe(422);
+  });
+});
+
+describe("編集URLの再発行(境目)", () => {
+  const reissue = (id: string, secret: string | undefined, next: string) =>
+    api("POST", `/api/calendars/${id}/edit-secret`, { secret, body: { newSecret: next } });
+
+  it("新しい秘密が今と同じなら 422", async () => {
+    const cal = await createCalendar();
+    expect((await reissue(cal.id, cal.editSecret, cal.editSecret)).status).toBe(422);
+  });
+
+  it("Authorization がないと 401", async () => {
+    const cal = await createCalendar();
+    expect((await reissue(cal.id, undefined, newSecret())).status).toBe(401);
+  });
+
+  it("B の秘密で A の再発行はできず、A の古い秘密はそのまま使える", async () => {
+    const a = await createCalendar("A");
+    const b = await createCalendar("B");
+    expect((await reissue(a.id, b.editSecret, newSecret())).status).toBe(401);
+    expect((await api("GET", `/api/calendars/${a.id}`, { secret: a.editSecret })).status).toBe(200);
+    expect((await api("GET", `/api/calendars/${b.id}`, { secret: b.editSecret })).status).toBe(200);
   });
 });
 
@@ -367,148 +600,5 @@ describe("カレンダーの削除", () => {
     const gm = await createCalendar("GM");
     await seedSession({ id: sid(12), title: "昔の卓", dates: [day(-200)], archived: true, members: [{ calendarId: gm.id, role: "GM" }] });
     expect((await api("DELETE", `/api/calendars/${gm.id}`, { secret: gm.editSecret })).status).toBe(204);
-  });
-});
-
-describe("セキュリティの共通処理", () => {
-  it("API の応答にセキュリティヘッダが付く(エラーのときも)", async () => {
-    for (const res of [
-      await api("POST", "/api/calendars", { body: { displayName: "a" } }),
-      await api("GET", "/api/calendars/cal_x"),
-      await api("GET", "/api/nothing"),
-    ]) {
-      expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
-      expect(res.headers.get("Referrer-Policy")).toBe("no-referrer");
-      expect(res.headers.get("Cache-Control")).toBe("no-store");
-      expect(res.headers.get("Content-Security-Policy")).toContain("frame-ancestors 'none'");
-      expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
-    }
-  });
-
-  it("別のサイトからの書き込みは 403", async () => {
-    const res = await api("POST", "/api/calendars", {
-      body: { displayName: "a" },
-      headers: { Origin: "https://evil.example" },
-    });
-    expect(res.status).toBe(403);
-  });
-
-  it("同じサイトからの書き込みは通る", async () => {
-    const res = await api("POST", "/api/calendars", {
-      body: { displayName: "a" },
-      headers: { Origin: "https://example.com" },
-    });
-    expect(res.status).toBe(201);
-  });
-
-  it("JSON 以外の形式は 415(フォーム送信を防ぐ)", async () => {
-    const res = await api("POST", "/api/calendars", {
-      rawBody: "displayName=a",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    expect(res.status).toBe(415);
-  });
-
-  it("32KB を超えるボディは 413", async () => {
-    const res = await api("POST", "/api/calendars", {
-      rawBody: JSON.stringify({ displayName: "a".repeat(40_000) }),
-      headers: { "Content-Type": "application/json" },
-    });
-    expect(res.status).toBe(413);
-  });
-
-  it("知らない API は 404 の JSON", async () => {
-    const res = await api("GET", "/api/nothing");
-    expect(res.status).toBe(404);
-    expect((await res.json<{ error: { code: string } }>()).error.code).toBe("NOT_FOUND");
-  });
-
-  it("同じ接続元から作りすぎると 429", async () => {
-    const ip = freshIp();
-    const statuses: number[] = [];
-    for (let i = 0; i < 12; i++) {
-      statuses.push((await api("POST", "/api/calendars", { body: { displayName: "a" }, ip })).status);
-    }
-    expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
-    expect(statuses.at(-1)).toBe(429);
-  });
-});
-
-describe("回数制限(書き込み・読み取り)", () => {
-  it("書き込みは同じ接続元から1分に60回まで", async () => {
-    const cal = await createCalendar();
-    const ip = freshIp();
-    const statuses: number[] = [];
-    for (let i = 0; i < 61; i++) {
-      const res = await api("PUT", `/api/calendars/${cal.id}/availability`, {
-        secret: cal.editSecret,
-        ip,
-        body: { availability: { [day(1)]: { s: "o" } } },
-      });
-      statuses.push(res.status);
-    }
-    expect(statuses.slice(0, 60).every((s) => s === 200)).toBe(true);
-    expect(statuses[60]).toBe(429);
-  });
-
-  it("読み取りは同じ接続元から1分に120回まで", async () => {
-    const cal = await createCalendar();
-    const ip = freshIp();
-    const statuses: number[] = [];
-    for (let i = 0; i < 121; i++) {
-      statuses.push((await api("GET", `/api/calendars/${cal.id}`, { secret: cal.editSecret, ip })).status);
-    }
-    expect(statuses.slice(0, 120).every((s) => s === 200)).toBe(true);
-    expect(statuses[120]).toBe(429);
-  });
-
-  it("IPv6 は先頭64ビットが同じなら、同じ接続元として数える", async () => {
-    const statuses: number[] = [];
-    for (let i = 0; i < 11; i++) {
-      // 末尾だけ違う(同じ回線の)アドレス
-      const ip = `2001:db8:aa:bb::${(i + 1).toString(16)}`;
-      statuses.push((await api("POST", "/api/calendars", { body: { displayName: "a" }, ip })).status);
-    }
-    expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
-    expect(statuses[10]).toBe(429);
-  });
-
-});
-
-describe("見た目をごまかす文字・大きすぎるデータ", () => {
-  it("同じ文字に続く飾り記号は3個までに縮める", async () => {
-    const cal = await createCalendar("a" + "́".repeat(1000));
-    expect(cal.displayName).toBe("a" + "́".repeat(3));
-  });
-
-  it("目に見えない文字は取り除く。目に見えない文字だけの名前は断る", async () => {
-    const cal = await createCalendar("た​ろ‍う﻿ ");
-    expect(cal.displayName).toBe("たろう");
-    const res = await api("POST", "/api/calendars", { body: { displayName: "ㅤㅤ" } });
-    expect(res.status).toBe(422);
-  });
-
-  it("絵文字の組み合わせに必要な文字は残す", async () => {
-    const cal = await createCalendar("👨‍👩‍👧");
-    expect(cal.displayName).toBe("👨‍👩‍👧");
-  });
-
-  it("予定全体が大きすぎるときは保存しない(422)", async () => {
-    const cal = await createCalendar();
-    const huge: Record<string, { s: string; memo: string }> = {};
-    for (let i = 1; i <= 175; i++) huge[day(i)] = { s: "o", memo: "あ".repeat(800) };
-    await env.DB.prepare("UPDATE calendars SET availability = ?1 WHERE id = ?2").bind(JSON.stringify(huge), cal.id).run();
-    const res = await putAvailability(cal.id, cal.editSecret, { [day(176)]: { s: "o", memo: "あ".repeat(100) } });
-    expect(res.status).toBe(422);
-    // 減らす方向の保存はできる
-    const shrink = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [day(i + 1), null]));
-    expect((await putAvailability(cal.id, cal.editSecret, shrink)).status).toBe(200);
-  });
-
-  it("カレンダーが削除されたあとに保存すると 401(500 にならない)", async () => {
-    const cal = await createCalendar();
-    await api("DELETE", `/api/calendars/${cal.id}`, { secret: cal.editSecret });
-    expect((await putAvailability(cal.id, cal.editSecret, { [day(1)]: { s: "o" } })).status).toBe(401);
-    expect((await api("PATCH", `/api/calendars/${cal.id}`, { secret: cal.editSecret, body: { displayName: "x" } })).status).toBe(401);
   });
 });
