@@ -26,3 +26,21 @@ Thumbs.db
 
 # フィードバックの控え(返信先などの個人情報が入るので GitHub には上げない)
 backups/
+
+# 画像・デザインの元ファイル(ロゴの下書きなど)。GitHub には上げず、サイトにも出さない
+# 公開するのは public/ に置いた PNG だけ(サイトで実際に使う画像)
+design/
+*.png
+!public/**/*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.svg
+!public/favicon.svg
+*.af
+*.afdesign
+*.ai
+*.psd
+*.fig
+*.xcf
