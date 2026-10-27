@@ -203,7 +203,10 @@ function Editor(props: {
     if (pen === "stamp") {
       // 「変えない」の項目は今の内容のまま。記号を変えないスタンプは、記号のない日には付けない
       const next = applyStamp(current, stamp);
-      if (next) save.change(date, next);
+      if (!next) return;
+      // ◯ か △ にした日に時刻がなければ、ほかのペンと同じく曜日のいつもの時間を書き写す(3.18)
+      const weekly = next.s !== "x" && !next.time && stamp.time === undefined ? weeklyFor(date) : undefined;
+      save.change(date, weekly ? { ...next, time: weekly } : next);
       return;
     }
     // 記号を変えてもメモは残す(1日分はまとめて送る)。

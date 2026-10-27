@@ -2,7 +2,7 @@
 export const LIMITS = {
   displayName: 20,
   memo: 100,
-  title: 50,
+  title: 100,
   candidateDates: 60,
   participants: 30,
   availabilityPerRequest: 200,
@@ -15,7 +15,7 @@ export const LIMITS = {
 export const RAW_LIMITS = {
   displayName: 160,
   memo: 800,
-  title: 400,
+  title: 800,
 } as const;
 
 /** 問い合わせ・評価の上限(見た目の文字数) */

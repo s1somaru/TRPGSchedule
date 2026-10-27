@@ -78,7 +78,7 @@ export async function updateCalendarSettings(
         `UPDATE calendars SET
            display_name = COALESCE(?1, display_name),
            weekly_times = COALESCE(?2, weekly_times),
-           last_updated_at = CASE WHEN ?1 IS NULL THEN last_updated_at ELSE ?3 END
+           last_updated_at = CASE WHEN ?1 IS NULL OR ?1 = display_name THEN last_updated_at ELSE ?3 END
          WHERE id = ?4 AND edit_secret_hash = ?5`,
       )
       .bind(name, weekly, now, id, secretHash),
@@ -118,7 +118,8 @@ export async function mergeAvailability(
   const [updated, selected] = await db.batch([
     db
       .prepare(
-        `UPDATE calendars SET availability = ${MERGED}, last_updated_at = ?3
+        `UPDATE calendars SET availability = ${MERGED},
+           last_updated_at = CASE WHEN ${MERGED} = availability THEN last_updated_at ELSE ?3 END
          WHERE id = ?4 AND edit_secret_hash = ?5 AND length(${MERGED}) <= ?6`,
       )
       .bind(JSON.stringify(changes), pastCutoff(now), now.toISOString(), id, secretHash, MAX_AVAILABILITY_CHARS),

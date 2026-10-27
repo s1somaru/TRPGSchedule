@@ -31,7 +31,7 @@ export function Top() {
         <SaveUrl
           url={editUrl(step.id, step.secret)}
           doneLabel="カレンダーへ進む"
-          onDone={() => navigate(`/c/${step.id}#${step.secret}`)}
+          onDone={() => navigate(`/c/${step.id}`)}
         />
       </main>
     );

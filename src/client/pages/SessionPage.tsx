@@ -261,7 +261,7 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
   return (
     <>
       <main class="page page-wide">
-        <h1>{session.title}</h1>
+        <h1 class={session.title.length > 30 ? "title-long" : undefined}>{session.title}</h1>
 
         <ConfirmedBanner session={session} today={today} />
         {session.timeWindow && <p class="time-window-note">開催する時間帯:{rangeLabel(session.timeWindow)}</p>}
@@ -412,7 +412,7 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
             try {
               await api.deleteSession(session.id, viewer.secret);
               storage.forgetSession(session.id);
-              navigate(`/c/${viewer.id}#${viewer.secret}`);
+              navigate(`/c/${viewer.id}`);
             } catch (err) {
               close();
               setActionError(err instanceof Error ? err.message : "削除できませんでした");
@@ -586,6 +586,7 @@ function DaySheet(props: {
                   <span class={p.calendarDeleted ? "deleted" : ""}>
                     {p.role === "GM" && <span class="tag tag-gm">GM</span>}
                     {p.displayName}
+                    {p.calendarDeleted && <span class="muted">(削除済み)</span>}
                     {e?.time && <span class="muted day-memo">空いている時間:{rangeLabel(e.time)}</span>}
                     {c?.adjusted && (
                       <span class="muted day-memo">
@@ -789,9 +790,9 @@ function ArchiveView(props: { session: SessionResponse; viewer: StoredCalendar |
 
   return (
     <main class="page stack">
-      <h1>{session.title}</h1>
+      <h1 class={session.title.length > 30 ? "title-long" : undefined}>{session.title}</h1>
       {session.confirmedDates.length > 0 ? (
-        <ConfirmedBanner session={session} today="0000-01-01" archived />
+        <ConfirmedBanner session={session} today="9999-12-31" archived />
       ) : (
         <div class="confirmed-banner archived">開催日は決まりませんでした</div>
       )}
@@ -829,7 +830,7 @@ function ArchiveView(props: { session: SessionResponse; viewer: StoredCalendar |
             try {
               await api.deleteSession(session.id, viewer.secret);
               storage.forgetSession(session.id);
-              navigate(`/c/${viewer.id}#${viewer.secret}`);
+              navigate(`/c/${viewer.id}`);
             } catch (err) {
               setConfirmDelete(false);
               setError(err instanceof Error ? err.message : "削除できませんでした");

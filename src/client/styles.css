@@ -1995,3 +1995,9 @@ html::before {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* 長い卓のタイトルは、見出しを少し小さくする(100文字まで入るため) */
+h1.title-long {
+  font-size: 1.25rem;
+  line-height: 1.45;
+}

@@ -84,7 +84,7 @@ describe("卓の作成", () => {
 
   it("タイトルが空・長すぎると 422", async () => {
     const gm = await createCalendar();
-    for (const title of ["", "あ".repeat(51)]) {
+    for (const title of ["", "あ".repeat(101)]) {
       const res = await api("POST", "/api/sessions", { secret: gm.editSecret, body: { title, candidateDates: [day(1)] } });
       expect(res.status).toBe(422);
     }

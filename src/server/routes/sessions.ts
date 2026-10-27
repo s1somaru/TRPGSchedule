@@ -124,10 +124,13 @@ sessions.patch("/:id", rateLimit("RL_WRITE"), async (c) => {
         ? (JSON.parse(bundle.session.time_window) as TimeRange)
         : null
       : body.timeWindow;
-  // 日ごとの時間帯:候補日でなくなった日の分は捨てる
+  // 日ごとの時間帯:候補日でなくなった日の分と、卓の時間帯と同じになった日の分は捨てる
   const dateTimesAll =
     body.dateTimes ?? (JSON.parse(bundle.session.date_times) as Record<string, TimeRange>);
-  const dateTimes = Object.fromEntries(Object.entries(dateTimesAll).filter(([d]) => candidateDates.includes(d)));
+  const sameAsWindow = (r: TimeRange) => timeWindow !== null && r.from === timeWindow.from && r.to === timeWindow.to;
+  const dateTimes = Object.fromEntries(
+    Object.entries(dateTimesAll).filter(([d, r]) => candidateDates.includes(d) && !sameAsWindow(r)),
+  );
 
   const updated = await db.updateSession(c.env.DB, bundle.session.id, {
     title: body.title ?? bundle.session.title,

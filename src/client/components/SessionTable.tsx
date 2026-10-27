@@ -29,7 +29,10 @@ export function SessionTable(props: {
             {people.map((p) => (
               <th scope="col" key={p.id} class={p.calendarDeleted ? "deleted" : ""} title={p.displayName}>
                 {p.role === "GM" && <span class="gm-mark">GM</span>}
-                <span class="pname">{p.displayName}</span>
+                <span class="pname">
+                  {p.displayName}
+                  {p.calendarDeleted && "(削除済み)"}
+                </span>
               </th>
             ))}
           </tr>
