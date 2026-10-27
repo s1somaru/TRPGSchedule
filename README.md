@@ -114,3 +114,9 @@ npm run feedback:export   # 本番の控えを backups/feedback.json に保存(�
 ## セキュリティの問題を見つけたら
 
 公開の Issue には書かず、GitHub の [Security advisories](https://github.com/s1somaru/takuyose/security/advisories/new) から非公開で知らせてください。
+
+## ライセンス
+
+ソースコードと文書は [MIT License](LICENSE) で公開しています。
+
+ただし、「たくよせ」の名前とロゴ(`public/favicon.svg`、`public/og-image.png` などのロゴ画像)は MIT License の対象外です。このリポジトリを元に別のサービスを作るときは、名前とロゴを変えてください。
