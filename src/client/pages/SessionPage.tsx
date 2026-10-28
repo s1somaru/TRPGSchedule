@@ -258,15 +258,18 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
     }
   }, [session.id]);
 
-  /** 秘密を使う操作をして、終わったら読み直す */
-  const act = async (fn: (secret: string) => Promise<unknown>) => {
-    if (!viewer) return;
+  /** 秘密を使う操作をして、終わったら読み直す。うまくいかなければ、その理由を返す */
+  const act = async (fn: (secret: string) => Promise<unknown>): Promise<string | null> => {
+    if (!viewer) return null;
     setActionError(null);
     try {
       await fn(viewer.secret);
       await props.onChanged();
+      return null;
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "うまくいきませんでした");
+      const message = err instanceof Error ? err.message : "うまくいきませんでした";
+      setActionError(message);
+      return message;
     }
   };
 
@@ -359,14 +362,14 @@ function ActiveView(props: { session: SessionResponse; viewer: StoredCalendar | 
             void act((s) => api.patchSession(session.id, s, { confirmedDates: next }));
           }}
           onDateTime={(date, range) => {
-            close();
+            // 画面は閉じない(続けてこの日に決められるように)。
             // この日だけの時間帯。卓の時間帯と同じなら、日ごとの指定を外す
             const next = { ...session.dateTimes };
             const same =
               range && session.timeWindow && range.from === session.timeWindow.from && range.to === session.timeWindow.to;
             if (!range || same) delete next[date];
             else next[date] = range;
-            void act((s) => api.patchSession(session.id, s, { dateTimes: next }));
+            return act((s) => api.patchSession(session.id, s, { dateTimes: next }));
           }}
         />
       )}
@@ -561,7 +564,7 @@ function DaySheet(props: {
   onClose: () => void;
   onConfirm: (date: string, confirm: boolean) => void;
   /** この日だけの時間帯を変える(undefined で卓の時間帯に戻す) */
-  onDateTime: (date: string, range: TimeRange | undefined) => void;
+  onDateTime: (date: string, range: TimeRange | undefined) => Promise<string | null>;
 }) {
   const window = windowFor(props.session, props.date);
   const sum = judgeDate(props.session.participants, props.date, window);
@@ -569,6 +572,20 @@ function DaySheet(props: {
   const hasOthers = props.session.confirmedDates.some((d) => d !== props.date);
   const [editingTime, setEditingTime] = useState(false);
   const [dayTime, setDayTime] = useState<TimeRange | undefined>(window);
+  const [timeBusy, setTimeBusy] = useState(false);
+  const [timeError, setTimeError] = useState<string | null>(null);
+  /** この日だけの時間帯を保存する。保存できたら入力欄をたたみ、画面は開いたままにする */
+  const saveDayTime = async (range: TimeRange | undefined) => {
+    setTimeBusy(true);
+    setTimeError(null);
+    const error = await props.onDateTime(props.date, range);
+    setTimeBusy(false);
+    if (error) setTimeError(error);
+    else {
+      setDayTime(range ?? props.session.timeWindow ?? undefined);
+      setEditingTime(false);
+    }
+  };
   const note = {
     ok: "GM全員が ◯ か △ の日です",
     ng: "GMの誰かが × の日です",
@@ -613,6 +630,33 @@ function DaySheet(props: {
             );
           })}
         </ul>
+        {/* 時間帯を先に置き、決めるボタンをその下に置く(時間帯を直してから、そのまま決められるように) */}
+        {props.isGm &&
+          (editingTime ? (
+            <div class="card stack">
+              <p class="step-title">この日だけの時間帯</p>
+              <TimeRangeInput value={dayTime} onChange={setDayTime} label="この日だけの時間帯" />
+              <div class="btn-row">
+                <button type="button" class="btn btn-primary" disabled={timeBusy} onClick={() => void saveDayTime(dayTime)}>
+                  この時間帯にする
+                </button>
+                {props.session.dateTimes[props.date] && (
+                  <button type="button" class="btn" disabled={timeBusy} onClick={() => void saveDayTime(undefined)}>
+                    卓の時間帯に戻す
+                  </button>
+                )}
+              </div>
+              {timeError && (
+                <p class="error-text" role="alert">
+                  {timeError}
+                </p>
+              )}
+            </div>
+          ) : (
+            <button type="button" class="btn-link" onClick={() => setEditingTime(true)}>
+              この日だけ時間帯を変える
+            </button>
+          ))}
         {props.isGm &&
           (confirmed ? (
             <button type="button" class="btn btn-block" onClick={() => props.onConfirm(props.date, false)}>
@@ -621,27 +665,6 @@ function DaySheet(props: {
           ) : (
             <button type="button" class="btn btn-primary btn-block btn-big" onClick={() => props.onConfirm(props.date, true)}>
               {hasOthers ? "この日も開催日にする" : "この日に決める"}
-            </button>
-          ))}
-        {props.isGm &&
-          (editingTime ? (
-            <div class="card stack">
-              <p class="step-title">この日だけの時間帯</p>
-              <TimeRangeInput value={dayTime} onChange={setDayTime} label="この日だけの時間帯" />
-              <div class="btn-row">
-                <button type="button" class="btn btn-primary" onClick={() => props.onDateTime(props.date, dayTime)}>
-                  この時間帯にする
-                </button>
-                {props.session.dateTimes[props.date] && (
-                  <button type="button" class="btn" onClick={() => props.onDateTime(props.date, undefined)}>
-                    卓の時間帯に戻す
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <button type="button" class="btn-link" onClick={() => setEditingTime(true)}>
-              この日だけ時間帯を変える
             </button>
           ))}
         <button type="button" class="btn btn-block" onClick={props.onClose}>
