@@ -74,9 +74,17 @@ export function SessionTable(props: {
                   const e = p.availability[date];
                   // 卓の時間帯と、本人の空いている時間で判定した記号
                   const c = cellStatus(p, date, window);
+                  // 未入力は薄い「−」(日ごとの詳しい予定と同じ)。カレンダーが削除された人は空欄のまま
+                  const empty = !c && !p.calendarDeleted;
                   return (
-                    <td key={p.id} class={c ? `c-${c.s}` : ""}>
-                      {c ? STATUS_SYMBOL[c.s] : ""}
+                    <td key={p.id} class={c ? `c-${c.s}` : empty ? "c-none" : ""}>
+                      {c && STATUS_SYMBOL[c.s]}
+                      {empty && (
+                        <>
+                          <span aria-hidden="true">−</span>
+                          <span class="visually-hidden">未入力</span>
+                        </>
+                      )}
                       {c?.adjusted && (
                         <span class="clock-mark" title="時間帯が合わないため、記号を変えています">
                           <ClockIcon size={13} title="時間帯で判定" />

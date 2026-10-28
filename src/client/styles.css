@@ -971,6 +971,12 @@ table.sched {
 .day-sym.c-x {
   color: var(--x);
 }
+/* 未入力:◯△× と見間違えないよう、細く薄く */
+.sched td.c-none {
+  color: var(--muted);
+  font-weight: 400;
+  opacity: 0.6;
+}
 
 /* メモがある印(吹き出し)。マスの右上に、はっきり見える大きさで出す */
 .memo-mark {
