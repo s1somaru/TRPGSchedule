@@ -560,11 +560,64 @@ a:focus-visible {
   margin: 0 auto;
 }
 
+/* 上の段:元に戻す・説明・やり直す */
+.pen-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
 .pen-hint {
+  flex: 1;
+  min-width: 0;
   font-size: 0.75rem;
   color: var(--muted);
   text-align: center;
-  margin-bottom: 4px;
+  /* 文の区切り(<wbr>)で折り返す */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.undo-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.undo-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ペンの番号(キーボードの 1〜6)。マウスのある PC だけに出す */
+.pen {
+  position: relative;
+}
+
+.pen .key {
+  display: none;
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  font-size: 0.65rem;
+  color: var(--muted);
+  line-height: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pen .key {
+    display: block;
+  }
 }
 
 .pens {
@@ -1777,6 +1830,9 @@ textarea.tall {
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
+}
+.pen-top .stamp-hint {
+  margin-bottom: 0;
 }
 .stamp-summary {
   min-width: 0;

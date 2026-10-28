@@ -1,5 +1,5 @@
 // 自分のカレンダー(spec.md 6.3 ③)。URL は /c/{カレンダーID}#{秘密}
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { jstNow } from "../../shared/dates";
 import { ID_PATTERNS, newSecret } from "../../shared/ids";
 import { LIMITS } from "../../shared/limits";
@@ -13,9 +13,10 @@ import { MemoEditor } from "../components/MemoEditor";
 import { SaveUrl } from "../components/SaveUrl";
 import { Sheet } from "../components/Sheet";
 import { confirmedSummary, graphemeLength, relativeTime, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
-import { BackIcon, ClockIcon, EraserIcon, PencilIcon, StampIcon } from "../components/Icons";
+import { BackIcon, ClockIcon, EraserIcon, PencilIcon, RedoIcon, StampIcon, UndoIcon } from "../components/Icons";
 import { StampEditor, stampSummary } from "../components/StampEditor";
 import { applyStamp, isEmptyStamp, stampFromEntry, type Stamp } from "../logic";
+import { emptyHistory, recordChange, redo, undo, type UndoHistory } from "../undo";
 import { Link, navigate, navState } from "../router";
 import { editUrl, storage } from "../storage";
 import { useAutosave } from "../useAutosave";
@@ -203,13 +204,34 @@ function Editor(props: {
     api.mySessions(id, props.secret).then(setSessions, () => setSessions(null));
   }, [id, props.secret]);
 
+  // 元に戻す・やり直す(src/client/undo.ts)。1回の操作(タップ・なぞった1回・メモの保存)ごとに番号を振る
+  const [undoHistory, setUndoHistory] = useState<UndoHistory>(emptyHistory);
+  const opCounter = useRef(0);
+  const strokeOp = useRef(0);
+  const nextOp = () => ++opCounter.current;
+
+  /** 1日分を変えて、元に戻せるように覚えておく */
+  const change = (op: number, date: string, entry: DayEntry | null) => {
+    const before = save.entries[date] ?? null;
+    setUndoHistory((h) => recordChange(h, op, date, before, entry));
+    save.change(date, entry);
+  };
+
+  const replay = (result: ReturnType<typeof undo>) => {
+    if (!result) return;
+    setUndoHistory(result.history);
+    for (const [date, entry] of Object.entries(result.changes)) save.change(date, entry);
+  };
+  const onUndo = () => replay(undo(undoHistory));
+  const onRedo = () => replay(redo(undoHistory));
+
   /** その日の曜日の「いつもの時間」 */
   const weeklyFor = (date: string): TimeRange | undefined =>
     cal.weeklyTimes[String(weekdayOf(date)) as keyof WeeklyTimes];
 
-  const applyPen = (date: string) => {
+  const applyPen = (date: string, op: number) => {
     const current = save.entries[date];
-    if (pen === "erase") return save.change(date, null);
+    if (pen === "erase") return change(op, date, null);
     if (pen === "memo") return setPanel({ kind: "memo", date });
     if (pen === "stamp") {
       // 「変えない」の項目は今の内容のまま。記号を変えないスタンプは、記号のない日には付けない
@@ -217,13 +239,13 @@ function Editor(props: {
       if (!next) return;
       // ◯ か △ にした日に時刻がなければ、ほかのペンと同じく曜日のいつもの時間を書き写す(3.18)
       const weekly = next.s !== "x" && !next.time && stamp.time === undefined ? weeklyFor(date) : undefined;
-      save.change(date, weekly ? { ...next, time: weekly } : next);
+      change(op, date, weekly ? { ...next, time: weekly } : next);
       return;
     }
     // 記号を変えてもメモは残す(1日分はまとめて送る)。
     // ◯ か △ のとき:すでに時刻があればそのまま、なければ曜日の「いつもの時間」を書き写す。× のときは時刻を外す
     const time = pen === "x" ? undefined : (current?.time ?? weeklyFor(date));
-    save.change(date, {
+    change(op, date, {
       s: pen,
       ...(current?.memo ? { memo: current.memo } : {}),
       ...(time ? { time } : {}),
@@ -243,7 +265,51 @@ function Editor(props: {
 
   const onTap = (date: string, memoDot: boolean) => {
     if (memoDot) setPanel({ kind: "memo", date });
-    else applyPen(date);
+    else applyPen(date, nextOp());
+  };
+
+  // 長押しでなぞった日は、なぞり始めから指を離すまでを1つの操作にする
+  const onPaint = (date: string, first: boolean) => {
+    if (first) strokeOp.current = nextOp();
+    applyPen(date, strokeOp.current);
+  };
+
+  // PC のキーボード操作:1〜6 でペンを選ぶ、Ctrl+Z で元に戻す、Ctrl+Y(Ctrl+Shift+Z)でやり直す。
+  // 文字を入力している間と、ダイアログを開いている間は反応しない
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || panel.kind !== "none") return;
+      const target = e.target;
+      if (target instanceof Element && target.closest("input, textarea, select, [contenteditable]")) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (mod && !e.altKey && key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) onRedo();
+        else onUndo();
+        return;
+      }
+      if (mod && !e.altKey && !e.shiftKey && key === "y") {
+        e.preventDefault();
+        onRedo();
+        return;
+      }
+      if (mod || e.altKey || e.repeat) return;
+      const index = Number(e.key) - 1;
+      const choice = PENS[index];
+      if (/^[1-6]$/.test(e.key) && choice) {
+        e.preventDefault();
+        choosePen(choice.pen);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  const choosePen = (next: Pen) => {
+    setPen(next);
+    // スタンプを選んだら、いつでも中身を決める画面を開く(今の中身が入った状態で)
+    if (next === "stamp") setPanel({ kind: "stamp" });
   };
 
   const close = () => setPanel({ kind: "none" });
@@ -305,7 +371,7 @@ function Editor(props: {
               today={today}
               canPaint={pen !== "memo"}
               onTap={onTap}
-              onPaint={applyPen}
+              onPaint={onPaint}
             />
           </div>
 
@@ -324,12 +390,12 @@ function Editor(props: {
       <PenBar
         pen={pen}
         stamp={stamp}
-        onChange={(next) => {
-          setPen(next);
-          // スタンプを押したら、いつでも中身を決める画面を開く(今の中身が入った状態で)
-          if (next === "stamp") setPanel({ kind: "stamp" });
-        }}
+        onChange={choosePen}
         onEditStamp={() => setPanel({ kind: "stamp" })}
+        canUndo={undoHistory.done.length > 0}
+        canRedo={undoHistory.undone.length > 0}
+        onUndo={onUndo}
+        onRedo={onRedo}
       />
 
       {panel.kind === "memo" && (
@@ -338,7 +404,7 @@ function Editor(props: {
           entry={save.entries[panel.date]}
           defaultTime={weeklyFor(panel.date)}
           recentMemos={recentMemos}
-          onSave={(entry: DayEntry) => save.change(panel.date, entry)}
+          onSave={(entry: DayEntry) => change(nextOp(), panel.date, entry)}
           onMakeStamp={(entry: DayEntry) => {
             setStamp(stampFromEntry(entry));
             setPen("stamp");
@@ -457,31 +523,78 @@ const PENS: { pen: Pen; sym: string | JSX.Element; label: string }[] = [
   { pen: "stamp", sym: <StampIcon size={22} />, label: "スタンプ" },
 ];
 
-function PenBar(props: { pen: Pen; stamp: Stamp; onChange: (pen: Pen) => void; onEditStamp: () => void }) {
+function PenBar(props: {
+  pen: Pen;
+  stamp: Stamp;
+  onChange: (pen: Pen) => void;
+  onEditStamp: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+}) {
   return (
     <div class="pen-bar">
       <div class="inner">
-        {props.pen === "stamp" && !isEmptyStamp(props.stamp) ? (
-          <div class="pen-hint stamp-hint">
-            <span class="stamp-summary">スタンプ:{stampSummary(props.stamp)}</span>
-            <button type="button" class="btn stamp-edit" onClick={props.onEditStamp}>
-              中身を変える
-            </button>
-          </div>
-        ) : (
-          <div class="pen-hint">
-            {props.pen === "memo" ? "日をタップしてメモを書きます" : "日をタップ。長押ししてなぞると、まとめて付きます"}
-          </div>
-        )}
+        <div class="pen-top">
+          <button
+            type="button"
+            class="undo-btn"
+            disabled={!props.canUndo}
+            onClick={props.onUndo}
+            title="元に戻す(Ctrl+Z)"
+            aria-label="元に戻す"
+          >
+            <UndoIcon size={16} />
+            <span>戻す</span>
+          </button>
+          {props.pen === "stamp" && !isEmptyStamp(props.stamp) ? (
+            <div class="pen-hint stamp-hint">
+              <span class="stamp-summary">スタンプ:{stampSummary(props.stamp)}</span>
+              <button type="button" class="btn stamp-edit" onClick={props.onEditStamp}>
+                中身を変える
+              </button>
+            </div>
+          ) : (
+            <div class="pen-hint">
+              {props.pen === "memo" ? (
+                "日をタップしてメモを書きます"
+              ) : (
+                <>
+                  日をタップ。
+                  <wbr />
+                  長押ししてなぞると、
+                  <wbr />
+                  まとめて付きます
+                </>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            class="undo-btn"
+            disabled={!props.canRedo}
+            onClick={props.onRedo}
+            title="やり直す(Ctrl+Y)"
+          >
+            <RedoIcon size={16} />
+            <span>やり直す</span>
+          </button>
+        </div>
         <div class="pens" role="group" aria-label="入力ペン">
-          {PENS.map((p) => (
+          {PENS.map((p, i) => (
             <button
               type="button"
               key={p.pen}
               class={`pen p-${p.pen}`}
               aria-pressed={props.pen === p.pen}
+              aria-keyshortcuts={String(i + 1)}
+              title={`${p.label}(${i + 1})`}
               onClick={() => props.onChange(p.pen)}
             >
+              <span class="key" aria-hidden="true">
+                {i + 1}
+              </span>
               <span class="sym" aria-hidden="true">
                 {p.sym}
               </span>

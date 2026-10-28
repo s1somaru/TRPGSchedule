@@ -1,4 +1,4 @@
-// 画面の計算部分のテスト(src/client/logic.ts・format.ts)。
+// 画面の計算部分のテスト(src/client/logic.ts・format.ts・undo.ts)。
 // どちらも preact に頼らないので、Workers の環境でもそのまま読み込める
 import { describe, expect, it } from "vitest";
 import { confirmedSummary, relativeTime } from "../src/client/format";
@@ -13,6 +13,8 @@ import {
   toggleDay,
   type PickerState,
 } from "../src/client/logic";
+import { emptyHistory, recordChange, redo, undo, UNDO_LIMIT } from "../src/client/undo";
+import type { DayEntry } from "../src/shared/types";
 
 const ID = `cal_${"A".repeat(22)}`;
 const SECRET = `sec_${"B".repeat(43)}`;
@@ -161,5 +163,65 @@ describe("表示の形(format.ts)", () => {
     expect(relativeTime(ago(60 * 60_000), now)).toBe("1時間前");
     expect(relativeTime(ago(23 * 3600_000), now)).toBe("23時間前");
     expect(relativeTime(ago(3 * 86400_000), now)).toBe("3日前");
+  });
+});
+
+describe("元に戻す・やり直す(undo.ts)", () => {
+  const O: DayEntry = { s: "o" };
+  const X: DayEntry = { s: "x" };
+  const T: DayEntry = { s: "t", time: { from: "21:00" } };
+
+  it("1日のタップを元に戻すと、変える前に戻る。やり直すと変えた後になる", () => {
+    let h = recordChange(emptyHistory(), 1, "2026-11-01", null, O);
+    h = recordChange(h, 2, "2026-11-01", O, X);
+    const u = undo(h)!;
+    expect(u.changes).toEqual({ "2026-11-01": O });
+    const u2 = undo(u.history)!;
+    expect(u2.changes).toEqual({ "2026-11-01": null });
+    expect(undo(u2.history)).toBeNull();
+    const r = redo(u2.history)!;
+    expect(r.changes).toEqual({ "2026-11-01": O });
+    expect(redo(r.history)!.changes).toEqual({ "2026-11-01": X });
+  });
+
+  it("同じ番号の変更(なぞった1回)は、1回でまとめて戻る", () => {
+    let h = recordChange(emptyHistory(), 5, "2026-11-01", null, O);
+    h = recordChange(h, 5, "2026-11-02", X, O);
+    h = recordChange(h, 5, "2026-11-03", T, O);
+    expect(h.done).toHaveLength(1);
+    expect(undo(h)!.changes).toEqual({ "2026-11-01": null, "2026-11-02": X, "2026-11-03": T });
+  });
+
+  it("なぞり始めの日が変わらなくても、前の操作とは混ざらない", () => {
+    let h = recordChange(emptyHistory(), 1, "2026-11-01", null, X);
+    h = recordChange(h, 2, "2026-11-02", O, O); // なぞり始め:もう◯だった
+    h = recordChange(h, 2, "2026-11-03", null, O);
+    expect(h.done).toHaveLength(2);
+    expect(undo(h)!.changes).toEqual({ "2026-11-03": null });
+  });
+
+  it("中身が変わらない変更は覚えない(時刻やメモも見比べる)", () => {
+    let h = recordChange(emptyHistory(), 1, "2026-11-01", O, { s: "o" });
+    expect(h.done).toHaveLength(0);
+    h = recordChange(h, 2, "2026-11-01", T, { s: "t", time: { from: "21:00", to: "24:00" } });
+    expect(h.done).toHaveLength(1);
+    h = recordChange(h, 3, "2026-11-02", { s: "o", memo: "夜" }, { s: "o" });
+    expect(h.done).toHaveLength(2);
+  });
+
+  it("新しく変えると、やり直せる手順は消える", () => {
+    let h = recordChange(emptyHistory(), 1, "2026-11-01", null, O);
+    h = undo(h)!.history;
+    expect(h.undone).toHaveLength(1);
+    h = recordChange(h, 2, "2026-11-02", null, X);
+    expect(h.undone).toHaveLength(0);
+    expect(redo(h)).toBeNull();
+  });
+
+  it("覚えておくのは新しい50回まで", () => {
+    let h = emptyHistory();
+    for (let i = 1; i <= UNDO_LIMIT + 5; i++) h = recordChange(h, i, "2026-11-01", i % 2 ? null : O, i % 2 ? O : null);
+    expect(h.done).toHaveLength(UNDO_LIMIT);
+    expect(h.done[0]!.op).toBe(6);
   });
 });

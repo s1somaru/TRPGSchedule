@@ -16,8 +16,8 @@ interface Props {
   canPaint: boolean;
   /** 1日をタップしたとき。memoDot はメモの印を押したとき */
   onTap: (date: string, memoDot: boolean) => void;
-  /** なぞっている途中で、新しい日に触れたとき */
-  onPaint: (date: string) => void;
+  /** なぞっている途中で、新しい日に触れたとき。first はなぞり始めの日のとき true */
+  onPaint: (date: string, first: boolean) => void;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -27,7 +27,7 @@ export function CalendarGrid(props: Props) {
   const paint = useLongPressPaint({
     canPaint: props.canPaint,
     onTap: props.onTap,
-    onPaint: (date) => props.onPaint(date),
+    onPaint: (date, first) => props.onPaint(date, first),
   });
 
   const months = monthsBetween(props.today, props.range.to);
