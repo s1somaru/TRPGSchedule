@@ -106,6 +106,13 @@ npm run deploy
 
 アプリの「お問い合わせ」と、フッタの評価で送られた内容は、データベースの `feedback` 表に保存されます。内容と評価は残し、返信先(個人情報)だけを1年で自動で消します。
 
+お問い合わせが届くと、運営者に [Resend](https://resend.com) でメールが届きます(内容と返信先はメールに入れません)。使うには、Worker の secret に Resend の API キーと宛先を入れます。入れなければ通知はしません。
+
+```bash
+npx wrangler secret put RESEND_API_KEY   # 送信だけできるキー
+npx wrangler secret put NOTIFY_EMAIL     # 知らせる先(Resend のアカウントのアドレス)
+```
+
 ```bash
 npm run feedback          # 本番(新しい順に50件)
 npm run feedback:local    # 手元の開発環境

@@ -1,5 +1,5 @@
 // 卓ページ(spec.md 6.3 ⑤)。URL は /s/{卓ID}。URL を知っている人なら誰でも見られる
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { inputRange, jstNow } from "../../shared/dates";
 import { cellStatus, hasActiveGm, judgeDate, windowFor } from "../../shared/judge";
 import { rangeLabel, type TimeRange } from "../../shared/time";
@@ -67,6 +67,9 @@ async function loadSession(id: string): Promise<Load> {
 /** タブの名前(index.html の title と同じ) */
 const DEFAULT_TITLE = "たくよせ | TRPGの日程調整";
 
+/** 戻ってきたときに読み直す間隔の下限 */
+const RELOAD_INTERVAL_MS = 30_000;
+
 export function SessionPage(props: { id: string }) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const loadedTitle = load.kind === "ready" ? load.session.title : null;
@@ -76,8 +79,10 @@ export function SessionPage(props: { id: string }) {
     if (loadedTitle) document.title = `たくよせ（${loadedTitle}）`;
   }, [loadedTitle]);
 
-  const refresh = () =>
-    loadSession(props.id).then((result) => {
+  const lastLoadedAt = useRef(0);
+  const refresh = () => {
+    lastLoadedAt.current = Date.now();
+    return loadSession(props.id).then((result) => {
       if (result.kind === "ready") {
         storage.rememberSession({
           id: props.id,
@@ -87,16 +92,23 @@ export function SessionPage(props: { id: string }) {
       }
       setLoad(result);
     });
+  };
 
   useEffect(() => {
     void refresh();
-    // ほかの画面から戻ってきたら、最新の予定を読み直す(ライブ参照)
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void refresh();
+    // ほかのタブやアプリから戻ってきたら、最新の予定を読み直す(ライブ参照)。
+    // タブを切り替えたとき(visibilitychange)と、ウィンドウを切り替えたとき(focus)の両方で見る。
+    // 両方が続けて起きることや、何度も行き来されることがあるので、前に読んでから少しの間は読み直さない
+    const onReturn = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastLoadedAt.current < RELOAD_INTERVAL_MS) return;
+      void refresh();
     };
-    document.addEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
     return () => {
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
       // ほかの画面へ移ったら、タブの名前を元に戻す
       document.title = DEFAULT_TITLE;
     };

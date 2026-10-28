@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { newFeedbackId } from "../../shared/ids";
 import { FeedbackBody } from "../../shared/schema";
 import { readBody, redact } from "../errors";
+import { notifyContact } from "../notify";
 import { rateLimit } from "../ratelimit";
 import type { AppEnv } from "../types";
 
@@ -12,6 +13,7 @@ export const feedback = new Hono<AppEnv>();
 feedback.post("/", rateLimit("RL_CREATE"), async (c) => {
   const body = await readBody(c, FeedbackBody);
   const isContact = body.kind === "contact";
+  const createdAt = new Date();
   await c.env.DB.prepare(
     `INSERT INTO feedback (id, kind, rating, category, message, contact, page, created_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
@@ -25,8 +27,12 @@ feedback.post("/", rateLimit("RL_CREATE"), async (c) => {
       redact(body.message ?? ""),
       isContact && body.contact ? redact(body.contact) : null,
       body.page ?? null,
-      new Date().toISOString(),
+      createdAt.toISOString(),
     )
     .run();
+  // お問い合わせだけ、届いたことを運営者に知らせる(★の評価は知らせない)。返事を待たせないよう裏で送る
+  if (isContact) {
+    c.executionCtx.waitUntil(notifyContact(c.env, { category: body.category, page: body.page ?? null, createdAt }));
+  }
   return c.json({ ok: true }, 201);
 });
