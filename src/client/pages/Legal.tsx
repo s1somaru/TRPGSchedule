@@ -2,14 +2,15 @@
 import { APP_NAME } from "../components/Header";
 import { Link } from "../router";
 
-const UPDATED = "2026年10月26日";
+const TERMS_UPDATED = "2026年10月28日";
+const PRIVACY_UPDATED = "2026年10月26日";
 const OPERATOR = "s1somaru";
 
 export function Terms() {
   return (
     <main class="page legal">
       <h1>利用規約</h1>
-      <p class="muted">最終更新日:{UPDATED}</p>
+      <p class="muted">最終更新日:{TERMS_UPDATED}</p>
       <p>
         この利用規約は、{APP_NAME}(以下「本サービス」)の利用条件を定めるものです。本サービスを利用した方は、この規約に同意したものとみなします。
       </p>
@@ -54,7 +55,12 @@ export function Terms() {
       <h2>7. 規約の変更</h2>
       <p>運営者は、必要に応じてこの規約を変えることがあります。変えた規約は、このページに載せた時点から効力を持ちます。</p>
 
-      <h2>8. お問い合わせ</h2>
+      <h2>8. 準拠法と裁判所</h2>
+      <p>
+        この規約は日本法に従います。本サービスに関する紛争は、運営者の住所地を管轄する地方裁判所または簡易裁判所を、第一審の専属的合意管轄裁判所とします。
+      </p>
+
+      <h2>9. お問い合わせ</h2>
       <p>
         この規約についてのお問い合わせは、<Link href="/contact">お問い合わせ</Link>からお送りください。
       </p>
@@ -66,7 +72,7 @@ export function Privacy() {
   return (
     <main class="page legal">
       <h1>プライバシーポリシー</h1>
-      <p class="muted">最終更新日:{UPDATED}</p>
+      <p class="muted">最終更新日:{PRIVACY_UPDATED}</p>
       <p>
         {APP_NAME}(以下「本サービス」)で、どんな情報を保存し、どう扱うかを説明します。
       </p>

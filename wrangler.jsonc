@@ -4,9 +4,9 @@
   "main": "src/server/index.ts",
   "compatibility_date": "2026-10-01",
 
-  // 公開のスイッチ。false のあいだは Cloudflare に置くだけで、外からは開けない
-  // (公開するときは workers_dev を true にしてデプロイし直す)
-  "workers_dev": false,
+  // 公開のスイッチ。true で https://takuyose.s1somaru.workers.dev から開ける
+  // (false にしてデプロイし直すと、Cloudflare に置いたまま外からは開けなくなる)
+  "workers_dev": true,
   "preview_urls": false,
 
   // 画面のファイル(Vite で作ったもの)。/api と卓ページ(/s/)だけ Worker のコードに通す

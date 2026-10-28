@@ -2,6 +2,7 @@
 
 TRPG の卓の日程を、ログインなしで「寄せる」ための Web アプリです。
 
+- サービス:https://takuyose.s1somaru.workers.dev
 - 仕様書:[docs/specification.md](docs/specification.md)(機能・データの扱い・セキュリティ・API・データモデル)
 
 **予定は1回入れるだけ。参加している卓ぜんぶに反映されます。**
@@ -94,7 +95,7 @@ npm run db:migrate:remote
 npm run deploy
 ```
 
-`wrangler.jsonc` の `"workers_dev": false` のあいだは、デプロイしても外からは開けません(Cloudflare に置くだけの状態)。公開するときは `true` にして、もう一度 `npm run deploy` を実行します。
+`wrangler.jsonc` の `"workers_dev"` が公開のスイッチです。`true` で `https://takuyose.s1somaru.workers.dev` から開けます。`false` にして `npm run deploy` し直すと、Cloudflare に置いたまま外からは開けなくなります。
 
 ### 運営するときの注意
 
