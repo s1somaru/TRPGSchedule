@@ -3,7 +3,7 @@
 // ロゴの画像は public/brand/ にある。暗い画面(ダークモード)では、暗い画面用の画像に自動で切り替える
 //   header.png / header-dark.png     … ヘッダ用(時計と「たくよせ」の1行)
 //   wordmark.png / wordmark-dark.png … 大きく出すとき用(英字の札つき)
-// タブのアイコン(public/favicon.svg)と、URLを貼ったときの画像(public/og-image.png)は別のファイル
+// タブのアイコン(public/favicon.png・apple-touch-icon.png)と、URLを貼ったときの画像(public/og-image.png)は別のファイル
 /** サービスの名前 */
 export const APP_NAME = "たくよせ";
 import { LogoMark } from "./Icons";

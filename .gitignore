@@ -37,7 +37,6 @@ design/
 *.webp
 *.gif
 *.svg
-!public/favicon.svg
 *.af
 *.afdesign
 *.ai

@@ -119,4 +119,4 @@ npm run feedback:export   # 本番の控えを backups/feedback.json に保存(�
 
 ソースコードと文書は [MIT License](LICENSE) で公開しています。
 
-ただし、「たくよせ」の名前とロゴ(`public/favicon.svg`、`public/og-image.png` などのロゴ画像)は MIT License の対象外です。このリポジトリを元に別のサービスを作るときは、名前とロゴを変えてください。
+ただし、「たくよせ」の名前とロゴ(`public/brand/` のロゴ画像、`public/favicon.png`、`public/apple-touch-icon.png`、`public/og-image.png`)は MIT License の対象外です。このリポジトリを元に別のサービスを作るときは、名前とロゴを変えてください。
