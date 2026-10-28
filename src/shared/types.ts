@@ -88,6 +88,18 @@ export interface ParticipantView {
 export interface BusyCell {
   s: Status | null;
   adjusted: boolean;
+  /** GM が見ているときだけ(本人の行を除く)。この卓の時間帯の中で重なっている時間。null は時刻不明 */
+  overlap?: TimeRange[] | null;
+  /** 本人の行だけ。重なっている、自分のほかの卓 */
+  sessions?: BusySession[];
+}
+
+/** 本人にだけ見せる、重なっているほかの卓 */
+export interface BusySession {
+  id: string;
+  title: string;
+  /** その日の時間帯(なければ null) */
+  time: TimeRange | null;
 }
 
 export interface SessionResponse {

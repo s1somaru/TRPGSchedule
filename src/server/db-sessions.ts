@@ -2,8 +2,8 @@
 // 「最後のGMか」「30人を超えるか」などの条件は、書き込む SQL 文の中に入れて、
 // 同時に操作されても食い違わないようにする
 import { windowFor } from "../shared/judge";
-import { statusWithBusy, type TimeRange } from "../shared/time";
-import type { Availability, BusyCell, ParticipantView, Role, SessionResponse } from "../shared/types";
+import { busyOverlap, statusWithBusy, type TimeRange } from "../shared/time";
+import type { Availability, BusyCell, BusySession, ParticipantView, Role, SessionResponse } from "../shared/types";
 
 export interface SessionRow {
   id: string;
@@ -29,6 +29,8 @@ export interface ParticipantRow {
 /** 参加者が参加している、ほかの決定済みの卓(design/busy-and-multi-times.md 2.5) */
 export interface BusyRow {
   participant_id: string;
+  session_id: string;
+  title: string;
   confirmed_dates: string;
   time_window: string | null;
   date_times: string;
@@ -62,7 +64,7 @@ const SELECT_PARTICIPANTS = `
  * この卓の候補日のどれかが開催日になっているもの
  */
 const SELECT_BUSY = `
-  SELECT p.id AS participant_id, s2.confirmed_dates, s2.time_window, s2.date_times
+  SELECT p.id AS participant_id, s2.id AS session_id, s2.title, s2.confirmed_dates, s2.time_window, s2.date_times
   FROM participations p
   JOIN participations p2 ON p2.calendar_id = p.calendar_id AND p2.session_id <> p.session_id
   JOIN sessions s2 ON s2.id = p2.session_id
@@ -114,9 +116,9 @@ export async function loadSession(
   };
 }
 
-/** 参加者ごとに、候補日ごとの「ほかの卓の時間帯」(null は時刻不明)を集める */
-function busyTimesByParticipant(rows: BusyRow[], candidates: Set<string>): Map<string, Map<string, (TimeRange | null)[]>> {
-  const out = new Map<string, Map<string, (TimeRange | null)[]>>();
+/** 参加者ごとに、候補日ごとの「ほかの卓」(時間帯の null は時刻不明)を集める */
+function busyTimesByParticipant(rows: BusyRow[], candidates: Set<string>): Map<string, Map<string, BusySession[]>> {
+  const out = new Map<string, Map<string, BusySession[]>>();
   for (const row of rows) {
     const window = row.time_window ? (JSON.parse(row.time_window) as TimeRange) : null;
     const perDate = JSON.parse(row.date_times) as Record<string, TimeRange>;
@@ -125,7 +127,7 @@ function busyTimesByParticipant(rows: BusyRow[], candidates: Set<string>): Map<s
       let byDate = out.get(row.participant_id);
       if (!byDate) out.set(row.participant_id, (byDate = new Map()));
       const list = byDate.get(date) ?? [];
-      list.push(perDate[date] ?? window);
+      list.push({ id: row.session_id, title: row.title, time: perDate[date] ?? window });
       byDate.set(date, list);
     }
   }
@@ -148,6 +150,9 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
   const timeWindow = session.time_window ? (JSON.parse(session.time_window) as TimeRange) : null;
   const dateTimes = JSON.parse(session.date_times) as Record<string, TimeRange>;
   const busyTimes = !archived && bundle.busy ? busyTimesByParticipant(bundle.busy, new Set(candidateDates)) : undefined;
+  const mine = viewerCalendarId
+    ? bundle.participants.filter((p) => p.calendar_id === viewerCalendarId)[0]
+    : undefined;
 
   const participants: ParticipantView[] = bundle.participants.map((row) => {
     const showSchedule = !archived && row.calendar_id !== null && row.availability !== null;
@@ -160,10 +165,20 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
     }
     // ほかの卓の開催日と重なっている日だけ、重なりを入れた記号を返す(時刻・卓の名前は返さない)
     const busy: Record<string, BusyCell> = {};
-    for (const [date, times] of busyTimes?.get(row.id) ?? []) {
+    // 見る人で返すものを分ける(design/busy-and-multi-times.md 2.10):
+    // 本人の行 → 重なっている卓の名前と時刻 / GM → この卓の時間帯の中で重なっている時間 / ほか → 記号と印だけ
+    const isSelf = mine !== undefined && row.id === mine.id;
+    const viewerIsGm = mine?.role === "GM";
+    for (const [date, others] of busyTimes?.get(row.id) ?? []) {
       const e = availability[date];
-      const r = statusWithBusy(e?.s ?? null, e?.time, windowFor({ timeWindow, dateTimes }, date), times);
-      if (r.busy) busy[date] = { s: r.s, adjusted: r.adjusted };
+      const window = windowFor({ timeWindow, dateTimes }, date);
+      const times = others.map((o) => o.time);
+      const r = statusWithBusy(e?.s ?? null, e?.time, window, times);
+      if (!r.busy) continue;
+      const cell: BusyCell = { s: r.s, adjusted: r.adjusted };
+      if (isSelf) cell.sessions = others;
+      else if (viewerIsGm) cell.overlap = busyOverlap(e?.s ?? null, e?.time, window, times);
+      busy[date] = cell;
     }
     return {
       id: row.id,
@@ -174,10 +189,6 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
       ...(Object.keys(busy).length > 0 ? { busy } : {}),
     };
   });
-
-  const mine = viewerCalendarId
-    ? bundle.participants.filter((p) => p.calendar_id === viewerCalendarId)[0]
-    : undefined;
 
   return {
     id: session.id,

@@ -5,13 +5,13 @@ import { cellStatus, hasActiveGm, judgeDate, windowFor } from "../../shared/judg
 import { dayTimeLabel, rangeLabel, type TimeRange } from "../../shared/time";
 import { TimeRangeInput } from "../components/TimeRangeInput";
 import { LIMITS } from "../../shared/limits";
-import type { Role, SessionResponse } from "../../shared/types";
+import type { BusyCell, Role, SessionResponse } from "../../shared/types";
 import { api, ApiClientError } from "../api";
 import { DatePicker } from "../components/DatePicker";
 import { JoinSheet } from "../components/JoinSheet";
 import { SessionTable } from "../components/SessionTable";
 import { Sheet } from "../components/Sheet";
-import { dateLabel, graphemeLength, holidayName, STATUS_SYMBOL } from "../format";
+import { busyLabel, dateLabel, graphemeLength, holidayName, STATUS_SYMBOL } from "../format";
 import { Link, navigate } from "../router";
 import { storage, type StoredCalendar } from "../storage";
 import { JUST_CREATED_KEY } from "./NewSession";
@@ -557,6 +557,23 @@ function GmTools(props: {
   );
 }
 
+/** 日の詳細の「別の卓の予定」の行。本人の行では、重なっている卓へのリンクにする */
+function BusyText(props: { cell: BusyCell }) {
+  const sessions = props.cell.sessions;
+  if (!sessions) return <span class="muted day-memo busy-text">{busyLabel(props.cell)}</span>;
+  return (
+    <span class="muted day-memo busy-text">
+      {sessions.map((s, i) => (
+        <span key={s.id}>
+          {i > 0 && "、"}
+          <Link href={`/s/${s.id}`}>「{s.title}」</Link>({s.time ? rangeLabel(s.time) : "時間帯なし"})
+        </span>
+      ))}
+      と重なっています
+    </span>
+  );
+}
+
 function DaySheet(props: {
   session: SessionResponse;
   date: string;
@@ -621,7 +638,7 @@ function DaySheet(props: {
                     {p.displayName}
                     {p.calendarDeleted && <span class="muted">(削除済み)</span>}
                     {e?.time && <span class="muted day-memo">空いている時間:{dayTimeLabel(e.time)}</span>}
-                    {c?.busy && <span class="muted day-memo busy-text">別の卓の予定が入っています</span>}
+                    {c?.busy && p.busy?.[props.date] && <BusyText cell={p.busy[props.date]!} />}
                     {e && c?.s && c.s !== e.s && (
                       <span class="muted day-memo">
                         本人は {STATUS_SYMBOL[e.s]}。

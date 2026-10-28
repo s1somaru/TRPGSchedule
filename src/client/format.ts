@@ -1,6 +1,7 @@
 // 画面に出す文字の形をそろえる
 import { holidayName } from "../shared/holidays";
-import type { Status } from "../shared/types";
+import { rangeLabel } from "../shared/time";
+import type { BusyCell, Status } from "../shared/types";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
@@ -61,4 +62,18 @@ export function confirmedSummary(dates: string[], today: string): string {
   if (!next) return "";
   const others = dates.length - 1;
   return `${shortDate(next)} 開催${others > 0 ? `(ほか${others}日)` : ""}`;
+}
+
+/**
+ * ほかの卓の予定と重なっていることの説明(design/busy-and-multi-times.md 2.10)。
+ * 本人には卓の名前と時刻、GM には重なっている時間、ほかの人には「入っています」だけ
+ */
+export function busyLabel(cell: BusyCell): string {
+  if (cell.sessions) {
+    const list = cell.sessions.map((s) => `「${s.title}」(${s.time ? rangeLabel(s.time) : "時間帯なし"})`).join("、");
+    return `${list}と重なっています`;
+  }
+  if (cell.overlap === null) return "別の卓の予定と重なっています(時間帯は不明)";
+  if (cell.overlap) return `${cell.overlap.map(rangeLabel).join("、")} が別の卓の予定と重なっています`;
+  return "別の卓の予定が入っています";
 }

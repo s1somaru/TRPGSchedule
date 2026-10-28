@@ -188,6 +188,29 @@ export function statusForWindow(
   return judgeSpans(status, union(ranges.map(spanOf)), spanOf(window));
 }
 
+/** 分を "HH:MM" にする */
+function fromMinutes(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+
+/**
+ * ほかの卓の予定と重なっている時間(design/busy-and-multi-times.md 2.10)。
+ * 関係する時間(本人の空き ∩ 卓の時間帯。時間帯がなければ本人の空き)の中だけを返す。
+ * 時刻不明のほかの卓が1つでもあれば null(分かっている部分も出さない)
+ */
+export function busyOverlap(
+  status: Status | null,
+  time: DayTime | undefined,
+  window: TimeRange | undefined,
+  busy: (TimeRange | null)[],
+): TimeRange[] | null {
+  if (busy.some((b) => b === null)) return null;
+  const ranges = rangesOf(time);
+  const free = status && ranges.length > 0 ? union(ranges.map(spanOf)) : [DAY_SPAN];
+  const relevant = window ? intersect(free, [spanOf(window)]) : free;
+  return intersect(relevant, (busy as TimeRange[]).map(spanOf)).map(([a, b]) => ({ from: fromMinutes(a), to: fromMinutes(b) }));
+}
+
 const RANK: Record<Status, number> = { o: 2, t: 1, x: 0 };
 
 /**

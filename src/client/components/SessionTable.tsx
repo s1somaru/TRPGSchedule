@@ -2,7 +2,7 @@
 // ◯ と △ の人数は、横にスクロールしなくても見えるよう日付のすぐ右に置く
 import { cellStatus, judgeDate, windowFor } from "../../shared/judge";
 import type { SessionResponse } from "../../shared/types";
-import { dateLabel, dayColorClass, holidayName, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
+import { busyLabel, dateLabel, dayColorClass, holidayName, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 import { BusyIcon, ClockIcon, MemoIcon } from "./Icons";
 
 export function SessionTable(props: {
@@ -85,9 +85,9 @@ export function SessionTable(props: {
                           <span class="visually-hidden">未入力</span>
                         </>
                       )}
-                      {c?.busy && (
-                        <span class="busy-mark" title="別の卓の予定が入っています">
-                          <BusyIcon size={13} title="別の卓の予定が入っています" />
+                      {c?.busy && p.busy?.[date] && (
+                        <span class="busy-mark" title={busyLabel(p.busy[date])}>
+                          <BusyIcon size={13} title={busyLabel(p.busy[date])} />
                         </span>
                       )}
                       {c?.adjusted && (

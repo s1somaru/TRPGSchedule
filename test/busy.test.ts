@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { addDays, jstNow } from "../src/shared/dates";
 import { cellStatus, judgeDate } from "../src/shared/judge";
-import { dayTimeLabel, sameDayTime, shortDayTimeLabel, statusForWindow, statusWithBusy, type TimeRange } from "../src/shared/time";
+import { busyOverlap, dayTimeLabel, sameDayTime, shortDayTimeLabel, statusForWindow, statusWithBusy, type TimeRange } from "../src/shared/time";
 import { emptyHistory, recordChange } from "../src/client/undo";
 import type { CalendarCreatedResponse, MySessionsResponse, ParticipantView, SessionResponse, Status } from "../src/shared/types";
 import { api, createCalendar } from "./helpers";
@@ -94,6 +94,17 @@ describe("ほかの卓の開催日を入れた判定", () => {
   });
 });
 
+describe("重なっている時間(GM に見せる)", () => {
+  it("この卓の時間帯と本人の空き時間の中だけを返す", () => {
+    expect(busyOverlap("o", R("18:00", "24:00"), R("19:00", "22:00"), [R("20:00", "23:00")])).toEqual([R("20:00", "22:00")]);
+    // 卓に時間帯がなければ本人の空き時間の中
+    expect(busyOverlap("o", R("21:00", "24:00"), undefined, [R("20:00", "23:00")])).toEqual([R("21:00", "23:00")]);
+  });
+  it("時刻不明のほかの卓が混ざれば null", () => {
+    expect(busyOverlap("o", undefined, R("19:00", "22:00"), [R("20:00", "23:00"), null])).toBeNull();
+  });
+});
+
 describe("時刻が配列でも読める(第2段階の準備)", () => {
   const two = [R("10:00", "13:00"), R("18:00")];
   it("表示", () => {
@@ -163,8 +174,8 @@ async function patchSession(id: string, gm: CalendarCreatedResponse, body: unkno
   if (res.status !== 200) throw new Error(`変更に失敗: ${res.status} ${await res.text()}`);
   return res.json<SessionResponse>();
 }
-async function getSession(id: string): Promise<SessionResponse> {
-  const res = await api("GET", `/api/sessions/${id}`);
+async function getSession(id: string, secret?: string): Promise<SessionResponse> {
+  const res = await api("GET", `/api/sessions/${id}`, { secret });
   if (res.status !== 200) throw new Error(`取得に失敗: ${res.status}`);
   return res.json();
 }
@@ -200,6 +211,26 @@ describe("卓ページの API の busy", () => {
     expect(raw).not.toContain("23:00");
     // GM には busy がない
     expect(view.participants.find((p) => p.role === "GM")!.busy).toBeUndefined();
+  });
+
+  it("見る人で返すものが違う:本人には卓の名前と時刻、GM には重なっている時間、ほかの人には印だけ", async () => {
+    const { gmB, pl, a, b } = await twoSessions();
+    const stranger = await createCalendar("通りすがり");
+    const pl2 = await createCalendar("PL2");
+    await joinSession(b.id, pl2);
+    const cellFor = async (secret?: string) => plOf(await getSession(b.id, secret)).busy![day(3)]!;
+
+    expect(await cellFor(pl.editSecret)).toEqual({
+      s: "t",
+      adjusted: false,
+      sessions: [{ id: a.id, title: "秘密の卓A", time: R("20:00", "23:00") }],
+    });
+    // 卓B 19:00〜22:00 ∩ 本人 18:00〜24:00 ∩ 卓A 20:00〜23:00
+    expect(await cellFor(gmB.editSecret)).toEqual({ s: "t", adjusted: false, overlap: [R("20:00", "22:00")] });
+    // PL・参加していない人・秘密なしには、キーごと付けない
+    for (const secret of [pl2.editSecret, stranger.editSecret, undefined]) {
+      expect(await cellFor(secret)).toEqual({ s: "t", adjusted: false });
+    }
   });
 
   it("その卓自身の開催日は busy に入らない", async () => {
