@@ -18,7 +18,7 @@ export function Footer(props: { path: string }) {
       <div class="footer-main">
         <div class="footer-brand">
           <Link href="/" class="brand footer-logo">
-            <Brand />
+            <Brand place="footer" />
           </Link>
           <p>予定は1回入れるだけ。参加している卓ぜんぶに反映されます。</p>
         </div>

@@ -1,42 +1,53 @@
 // ロゴ(ヘッダー・フッター・トップの紹介で共通)
 //
-// 正式なロゴに差し替えるとき:
-//   1. ロゴの画像を public/brand/ に置く(例:public/brand/logo.svg。正方形がおすすめ)
-//   2. 下の LOGO_SRC に、そのパス(例:"/brand/logo.svg")を書く
-//   3. ロゴの中に「たくよせ」の文字も入っているなら、LOGO_INCLUDES_NAME を true にする
-//      (横長のロゴなら LOGO_WIDTH_RATIO に 横÷縦 を書く。例:横3・縦1 なら 3)
-// タブのアイコン(public/favicon.svg)と、URLを貼ったときの画像(public/og-image.png)も、あわせて差し替える
+// ロゴの画像は public/brand/ にある。暗い画面(ダークモード)では、暗い画面用の画像に自動で切り替える
+//   header.png / header-dark.png     … ヘッダ用(時計と「たくよせ」の1行)
+//   wordmark.png / wordmark-dark.png … 大きく出すとき用(英字の札つき)
+// タブのアイコン(public/favicon.svg)と、URLを貼ったときの画像(public/og-image.png)は別のファイル
 /** サービスの名前 */
 export const APP_NAME = "たくよせ";
 import { LogoMark } from "./Icons";
 
-const LOGO_SRC: string | null = null;
-const LOGO_INCLUDES_NAME = false;
-const LOGO_WIDTH_RATIO = 1;
+interface LogoImage {
+  light: string;
+  dark: string;
+  /** 横÷縦 */
+  ratio: number;
+}
+
+const HEADER_LOGO: LogoImage = { light: "/brand/header.png", dark: "/brand/header-dark.png", ratio: 1360 / 424 };
+const WORDMARK: LogoImage = { light: "/brand/wordmark.png", dark: "/brand/wordmark-dark.png", ratio: 1360 / 460 };
+
+/**
+ * ロゴの画像。名前は画像の中にあるので、読み上げ用に名前を添える。
+ * onDark: 背景がいつも暗い場所(フッタ)では、明るい画面でも暗い画面用を使う
+ */
+function LogoPicture(props: { logo: LogoImage; height: number; onDark?: boolean }) {
+  const { logo, height } = props;
+  const width = Math.round(height * logo.ratio);
+  return (
+    <>
+      <picture>
+        {!props.onDark && <source srcset={logo.dark} media="(prefers-color-scheme: dark)" />}
+        <img src={props.onDark ? logo.dark : logo.light} width={width} height={height} alt="" class="brand-img" />
+      </picture>
+      <span class="visually-hidden">{APP_NAME}</span>
+    </>
+  );
+}
 
 /** ロゴの印だけ */
 export function BrandMark(props: { size?: number }) {
-  const size = props.size ?? 28;
-  if (LOGO_SRC) {
-    return <img src={LOGO_SRC} width={Math.round(size * LOGO_WIDTH_RATIO)} height={size} alt="" class="brand-img" />;
-  }
-  return <LogoMark size={size} />;
+  return <LogoMark size={props.size ?? 28} />;
 }
 
-/** ロゴの印と名前 */
-export function Brand(props: { size?: number }) {
-  if (LOGO_SRC && LOGO_INCLUDES_NAME) {
-    return (
-      <>
-        <BrandMark size={props.size} />
-        <span class="visually-hidden">{APP_NAME}</span>
-      </>
-    );
-  }
-  return (
-    <>
-      <BrandMark size={props.size} />
-      <span class="brand-name">{APP_NAME}</span>
-    </>
-  );
+/** ロゴの印と名前(ヘッダ・フッタ) */
+export function Brand(props: { place?: "header" | "footer" }) {
+  if (props.place === "footer") return <LogoPicture logo={WORDMARK} height={56} onDark />;
+  return <LogoPicture logo={HEADER_LOGO} height={40} />;
+}
+
+/** 大きいロゴ(トップ) */
+export function BrandWordmark(props: { height?: number }) {
+  return <LogoPicture logo={WORDMARK} height={props.height ?? 96} />;
 }

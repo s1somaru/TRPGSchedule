@@ -14,7 +14,7 @@ export function Header(props: { path: string }) {
     <header class="site-header">
       <div class="site-header-inner">
         <Link href="/" class="brand">
-          <Brand />
+          <Brand place="header" />
         </Link>
         <nav class="site-nav" aria-label="メニュー">
           {mine && !onCalendar && (

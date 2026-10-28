@@ -2,7 +2,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
 import { api, ApiClientError } from "../api";
-import { BrandMark } from "../components/Brand";
+import { BrandWordmark } from "../components/Brand";
 import { Intro } from "../components/Intro";
 import { SaveUrl } from "../components/SaveUrl";
 import { graphemeLength } from "../format";
@@ -69,10 +69,10 @@ function Home(props: { onCreate: () => void }) {
   return (
     <main class="page page-wide">
       <section class="hero">
-        <p class="hero-eyebrow">
-          <BrandMark size={22} />
-          TRPGの日程調整
-        </p>
+        <div class="hero-logo">
+          <BrandWordmark />
+        </div>
+        <p class="hero-eyebrow">TRPGの日程調整</p>
         <h1>予定は1回入れるだけ。</h1>
         <p class="hero-lead">参加している卓ぜんぶに、あなたの予定が反映されます。</p>
         <ul class="hero-badges" aria-label="特徴">

@@ -1833,6 +1833,15 @@ html::before {
 .brand-img {
   display: block;
   object-fit: contain;
+  max-width: 100%;
+  height: auto;
+}
+.brand picture,
+.hero-logo picture {
+  display: block;
+}
+.hero-logo {
+  margin: 0 0 14px;
 }
 
 /* ---- トップの紹介 ---- */
