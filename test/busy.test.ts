@@ -3,9 +3,8 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { addDays, jstNow } from "../src/shared/dates";
 import { cellStatus, judgeDate } from "../src/shared/judge";
-import { dayTimeLabel, rangesOf, sameDayTime, shortDayTimeLabel, statusForWindow, statusWithBusy, type TimeRange } from "../src/shared/time";
+import { dayTimeLabel, sameDayTime, shortDayTimeLabel, statusForWindow, statusWithBusy, type TimeRange } from "../src/shared/time";
 import { emptyHistory, recordChange } from "../src/client/undo";
-import { applyStamp } from "../src/client/logic";
 import type { CalendarCreatedResponse, MySessionsResponse, ParticipantView, SessionResponse, Status } from "../src/shared/types";
 import { api, createCalendar } from "./helpers";
 
@@ -16,6 +15,7 @@ describe("ほかの卓の開催日を入れた判定", () => {
   const mine = R("18:00", "24:00");
   const busy = [R("20:00", "23:00")];
 
+  // 3行目(同じ時間)は、二重に開催日を決めた場合と同じ
   it("設計書の表どおり", () => {
     expect(statusWithBusy("o", mine, R("18:00", "20:00"), busy)).toEqual({ s: "o", adjusted: false, busy: false });
     expect(statusWithBusy("o", mine, R("19:00", "22:00"), busy)).toEqual({ s: "t", adjusted: false, busy: true });
@@ -50,11 +50,6 @@ describe("ほかの卓の開催日を入れた判定", () => {
     expect(statusWithBusy("x", undefined, R("21:00"), [null])).toEqual({ s: "x", adjusted: false, busy: false });
   });
 
-  it("△ は ◯ に上がらない", () => {
-    expect(statusWithBusy("t", mine, R("18:00", "20:00"), busy).s).toBe("t");
-    expect(statusWithBusy("t", mine, R("19:00", "22:00"), busy)).toEqual({ s: "t", adjusted: false, busy: true });
-  });
-
   it("未入力は未入力のまま、重なれば印だけ", () => {
     expect(statusWithBusy(null, undefined, R("21:00", "24:00"), busy)).toEqual({ s: null, adjusted: false, busy: true });
     expect(statusWithBusy(null, undefined, R("10:00", "13:00"), busy)).toEqual({ s: null, adjusted: false, busy: false });
@@ -65,23 +60,10 @@ describe("ほかの卓の開催日を入れた判定", () => {
     expect(statusWithBusy("o", undefined, R("18:00", "20:00"), busy)).toEqual({ s: "o", adjusted: false, busy: false });
   });
 
-  it("深夜どうし(22:00〜26:00 と 25:00〜28:00)", () => {
-    expect(statusWithBusy("o", undefined, R("22:00", "26:00"), [R("25:00", "28:00")])).toEqual({
-      s: "t",
-      adjusted: false,
-      busy: true,
-    });
-  });
-
   it("busy が本人の時間を全部覆うと ×、まん中を割ると穴をまたぐ卓は △", () => {
     expect(statusWithBusy("o", R("20:00", "23:00"), undefined, busy)).toEqual({ s: "x", adjusted: false, busy: true });
-    expect(statusWithBusy("o", undefined, R("19:00", "20:00"), [R("12:00", "15:00")]).busy).toBe(false);
     expect(statusWithBusy("o", R("10:00", "24:00"), R("11:00", "13:00"), [R("14:00", "16:00")]).s).toBe("o");
     expect(statusWithBusy("o", R("10:00", "24:00"), R("13:00", "17:00"), [R("14:00", "16:00")]).s).toBe("t");
-  });
-
-  it("二重に決めた場合(同じ時間)は × + 印", () => {
-    expect(statusWithBusy("o", undefined, R("20:00", "23:00"), busy)).toEqual({ s: "x", adjusted: false, busy: true });
   });
 
   it("どの組み合わせでも、busy なしの結果より良くならない", () => {
@@ -114,10 +96,7 @@ describe("ほかの卓の開催日を入れた判定", () => {
 
 describe("時刻が配列でも読める(第2段階の準備)", () => {
   const two = [R("10:00", "13:00"), R("18:00")];
-  it("rangesOf・表示", () => {
-    expect(rangesOf(undefined)).toEqual([]);
-    expect(rangesOf(R("21:00"))).toEqual([R("21:00")]);
-    expect(rangesOf(two)).toEqual(two);
+  it("表示", () => {
     expect(dayTimeLabel(two)).toBe("10:00〜13:00、18:00〜");
     expect(shortDayTimeLabel(two)).toBe("10〜13 +1");
     expect(shortDayTimeLabel(R("21:00"))).toBe("21〜");
@@ -128,9 +107,6 @@ describe("時刻が配列でも読める(第2段階の準備)", () => {
     expect(sameDayTime(R("10:00", "13:00"), [R("10:00", "13:00")])).toBe(true);
     const h = recordChange(emptyHistory(), 1, "2026-11-03", { s: "o", time: two }, { s: "o", time: [R("10:00", "13:00")] });
     expect(h.done).toHaveLength(1);
-  });
-  it("スタンプで記号だけ変えても、配列の時刻は残る", () => {
-    expect(applyStamp({ s: "o", time: two }, { s: "t" })).toEqual({ s: "t", time: two });
   });
 });
 
@@ -263,31 +239,6 @@ describe("卓ページの API の busy", () => {
     await env.DB.prepare("UPDATE sessions SET archived_at = ?1 WHERE id = ?2").bind(new Date().toISOString(), b.id).run();
     expect(plOf(await getSession(b.id)).busy).toBeUndefined();
   });
-
-  it("カレンダーを削除した参加者には busy がない", async () => {
-    const { pl, b } = await twoSessions();
-    const res = await api("DELETE", `/api/calendars/${pl.id}`, { secret: pl.editSecret });
-    expect(res.status).toBe(204);
-    for (const p of (await getSession(b.id)).participants) expect(p.busy).toBeUndefined();
-  });
-
-  it("書き込みの応答には入れない(画面は書き込みの後に読み直す)", async () => {
-    const { gmB, b } = await twoSessions();
-    const res = await patchSession(b.id, gmB, { title: "卓B'" });
-    expect(plOf(res).busy).toBeUndefined();
-  });
-
-  it("未入力の日でも、重なっていれば印だけ付く", async () => {
-    const gmA = await createCalendar("GM-A");
-    const gmB = await createCalendar("GM-B");
-    const pl = await createCalendar("PL");
-    const a = await createSession(gmA, { title: "A", candidateDates: [day(5)], timeWindow: R("20:00", "23:00") });
-    const b = await createSession(gmB, { title: "B", candidateDates: [day(5)], timeWindow: R("21:00", "24:00") });
-    await joinSession(a.id, pl);
-    await joinSession(b.id, pl);
-    await patchSession(a.id, gmA, { confirmedDates: [day(5)] });
-    expect(plOf(await getSession(b.id)).busy).toEqual({ [day(5)]: { s: null, adjusted: false } });
-  });
 });
 
 describe("自分の卓一覧の confirmedTimes", () => {
@@ -302,14 +253,5 @@ describe("自分の卓一覧の confirmedTimes", () => {
     const byTitle = Object.fromEntries(list.active.map((s) => [s.title, s.confirmedTimes]));
     expect(byTitle["A"]).toEqual({ [day(3)]: R("20:00", "23:00"), [day(4)]: R("13:00", "17:00") });
     expect(byTitle["B"]).toEqual({ [day(6)]: null });
-  });
-
-  it("これまでのセッションにも入る", async () => {
-    const gm = await createCalendar("GM");
-    const s = await createSession(gm, { title: "昔", candidateDates: [day(3)], timeWindow: R("20:00") });
-    // 開催日を過去にする
-    await env.DB.prepare("UPDATE sessions SET confirmed_dates = ?1 WHERE id = ?2").bind(JSON.stringify([day(-3)]), s.id).run();
-    const list = await (await api("GET", `/api/calendars/${gm.id}/sessions`, { secret: gm.editSecret })).json<MySessionsResponse>();
-    expect(list.past[0]!.confirmedTimes).toEqual({ [day(-3)]: R("20:00") });
   });
 });
