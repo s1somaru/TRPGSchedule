@@ -168,8 +168,8 @@ flowchart LR
 ```mermaid
 flowchart LR
   U[ブラウザ<br/>Preact の SPA] -->|HTTPS| W[Cloudflare Workers]
-  W --> AS[静的アセット<br/>HTML・JS・CSS]
-  W --> H[Hono<br/>/api/* と卓ページの HTML]
+  W --> AS[静的アセット<br/>画像・JS・CSS]
+  W --> H[Hono<br/>/api/* と画面の HTML<br/>http→https の転送]
   H --> D[(Cloudflare D1<br/>SQLite)]
   CR[Cron Triggers<br/>1日1回] --> W
 ```
@@ -693,6 +693,7 @@ WHERE id = ?1 AND session_id = ?2 AND role = 'GM'
 | Permissions-Policy | カメラ・マイク・位置情報を無効化 | 同じ |
 | Cache-Control | 卓ページのみ `no-cache` | `no-store` |
 
+- http で開かれたら、同じ場所の https に 308 で転送する(画面も API も。API は中身を処理しない)。workers.dev では Cloudflare の「常にHTTPSを使用」が使えないため、Worker で行う
 - 500 エラーでは内部の情報(スタックトレース・SQL)を返さない。ログに残すエラー文は、秘密や ID の形をした文字列を伏せ字にしてから出す
 
 [▲ 目次へ](#toc)

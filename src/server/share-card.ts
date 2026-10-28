@@ -40,6 +40,17 @@ async function findTitle(c: Context<AppEnv>, id: string): Promise<string | null>
   return row?.title ?? null;
 }
 
+/**
+ * 画面のファイル(トップ・自分のカレンダーなど)を返す。
+ * Worker を通したファイルには public/_headers が効かないので、同じヘッダをここで付ける
+ */
+export async function pageAsset(c: Context<AppEnv>): Promise<Response> {
+  const asset = await c.env.ASSETS.fetch(c.req.raw);
+  const headers = new Headers(asset.headers);
+  for (const [k, v] of Object.entries(PAGE_SECURITY_HEADERS)) headers.set(k, v);
+  return new Response(asset.body, { status: asset.status, headers });
+}
+
 /** 卓ページ(/s/:id)の HTML を返す */
 export async function sessionPage(c: Context<AppEnv>): Promise<Response> {
   const asset = await c.env.ASSETS.fetch(c.req.raw);

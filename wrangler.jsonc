@@ -9,13 +9,15 @@
   "workers_dev": true,
   "preview_urls": false,
 
-  // 画面のファイル(Vite で作ったもの)。/api と卓ページ(/s/)だけ Worker のコードに通す
-  // (卓ページは、URLを貼ったときのカードに卓のタイトルを入れるため。spec.md 3.21)
+  // 画面のファイル(Vite で作ったもの)。画像・JS・CSS(「!」の付いたもの)は Cloudflare が直接返し、
+  // それ以外(画面のページと /api)は Worker のコードに通す。
+  // ページを通すのは、http で開かれたら https に飛ばすため(workers.dev では Cloudflare の設定でできない)と、
+  // 卓ページで URL を貼ったときのカードに卓のタイトルを入れるため(spec.md 3.21・7.5)
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/s/*"]
+    "run_worker_first": ["/*", "!/assets/*", "!/brand/*", "!/favicon.png", "!/apple-touch-icon.png", "!/og-image.png"]
   },
 
   // データの保存先(本番はアジア太平洋に作成。手元の開発では、この ID の DB は使われず手元の DB を使う)

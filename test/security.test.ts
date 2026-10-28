@@ -1,6 +1,6 @@
 // セキュリティまわりのテスト(spec.md 7章)
-// 画面のファイルのヘッダ・API の共通の応答・500 のエラー・画面のコード・書き込みの確認(writeGuard)・伏せ字
-import { env } from "cloudflare:workers";
+// 画面のファイルのヘッダ・https への切り替え・API の共通の応答・500 のエラー・画面のコード・書き込みの確認(writeGuard)・伏せ字
+import { env, exports } from "cloudflare:workers";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleError, redact } from "../src/server/errors";
@@ -50,6 +50,56 @@ describe("画面のファイルに付けるヘッダ(public/_headers)", () => {
   it("卓ページのヘッダ(PAGE_SECURITY_HEADERS)は public/_headers と同じ", () => {
     const expected = Object.fromEntries(Object.entries(PAGE_SECURITY_HEADERS).map(([name, value]) => [name.toLowerCase(), value]));
     expect(staticHeaders()).toEqual(expected);
+  });
+});
+
+/** URL をそのまま指定して Worker を呼ぶ(api() は https://example.com 固定なので) */
+function fetchUrl(url: string, init: RequestInit = {}): Promise<Response> {
+  const worker = (exports as unknown as { default: { fetch(req: Request): Promise<Response> } }).default;
+  return worker.fetch(new Request(url, { redirect: "manual", ...init }));
+}
+
+describe("http で来たら https に飛ばす(7.5)", () => {
+  it("画面のページは、同じ場所の https に 308 で飛ばす(パスとクエリはそのまま)", async () => {
+    for (const path of ["/", "/new", "/c/cal_x", "/s/ses_x?from=share", "/terms"]) {
+      const res = await fetchUrl(`http://example.com${path}`);
+      expect(res.status).toBe(308);
+      expect(res.headers.get("Location")).toBe(`https://example.com${path}`);
+    }
+  });
+
+  it("API も https に飛ばし、中身は処理しない(カレンダーは作られない)", async () => {
+    const res = await fetchUrl("http://example.com/api/calendars", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CF-Connecting-IP": "10.9.9.9" },
+      body: JSON.stringify({ displayName: "http" }),
+    });
+    expect(res.status).toBe(308);
+    expect(res.headers.get("Location")).toBe("https://example.com/api/calendars");
+    const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM calendars WHERE display_name = ?1").bind("http").first<{ n: number }>();
+    expect(row!.n).toBe(0);
+  });
+
+  it("手元の開発環境(localhost・127.0.0.1)の http は、そのまま開ける", async () => {
+    for (const host of ["localhost", "127.0.0.1"]) {
+      const res = await fetchUrl(`http://${host}/`);
+      expect(res.status).toBe(200);
+    }
+  });
+
+  it("https のページは、画面のファイルと同じヘッダを付けて返す", async () => {
+    const res = await fetchUrl("https://example.com/new");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/html");
+    for (const [name, value] of Object.entries(PAGE_SECURITY_HEADERS)) expect(res.headers.get(name)).toBe(value);
+  });
+
+  it("知らない API は、画面のファイルではなく 404 の JSON になる(GET 以外も)", async () => {
+    for (const method of ["GET", "POST"]) {
+      const res = await api(method, "/api/nothing", method === "POST" ? { body: {} } : {});
+      expect(res.status).toBe(404);
+      expect(res.headers.get("Content-Type")).toContain("application/json");
+    }
   });
 });
 

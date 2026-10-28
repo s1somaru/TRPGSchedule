@@ -58,3 +58,19 @@ export const sizeLimit = bodyLimit({
     throw Errors.payloadTooLarge();
   },
 });
+
+/** 手元の開発環境(http で動かす)。ここだけは https に飛ばさない */
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * http で来たら、同じ場所の https に飛ばす(7.5)。
+ * workers.dev では Cloudflare の「常にHTTPSを使用」が使えないので、Worker で行う
+ */
+export const httpsOnly: MiddlewareHandler = async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.protocol === "http:" && !LOCAL_HOSTS.has(url.hostname)) {
+    url.protocol = "https:";
+    return c.redirect(url.toString(), 308);
+  }
+  await next();
+};
