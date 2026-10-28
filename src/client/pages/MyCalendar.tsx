@@ -22,7 +22,7 @@ import { useAutosave } from "../useAutosave";
 
 type Load =
   | { kind: "loading" }
-  | { kind: "ready"; cal: CalendarResponse; secret: string }
+  | { kind: "ready"; cal: CalendarResponse; secret: string; openedFromOldUrl: boolean }
   | { kind: "invalid" }
   | { kind: "error"; message: string };
 
@@ -60,7 +60,9 @@ async function loadCalendar(id: string): Promise<Load> {
   for (const secret of candidates) {
     try {
       const cal = await api.getCalendar(id, secret);
-      return { kind: "ready", cal, secret };
+      // URL の秘密が使えず、この端末に覚えている新しい秘密で開けたとき(作り直す前の古いURLを開いた)
+      const openedFromOldUrl = ID_PATTERNS.secret.test(fromUrl) && secret !== fromUrl;
+      return { kind: "ready", cal, secret, openedFromOldUrl };
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) continue;
       return { kind: "error", message: err instanceof Error ? err.message : "読み込めませんでした" };
@@ -117,6 +119,7 @@ export function MyCalendar(props: { id: string }) {
       key={load.secret}
       initial={load.cal}
       secret={load.secret}
+      openedFromOldUrl={load.openedFromOldUrl}
       onSecretChanged={(secret) => setLoad({ ...load, secret })}
       onUnauthorized={() => setLoad({ kind: "invalid" })}
     />
@@ -166,10 +169,18 @@ type Panel =
 function Editor(props: {
   initial: CalendarResponse;
   secret: string;
+  openedFromOldUrl: boolean;
   onSecretChanged: (secret: string) => void;
   onUnauthorized: () => void;
 }) {
   const id = props.initial.id;
+  // 古いURLで開いたときの知らせ。少したったら自然に消す
+  const [oldUrlNotice, setOldUrlNotice] = useState(props.openedFromOldUrl);
+  useEffect(() => {
+    if (!oldUrlNotice) return;
+    const timer = setTimeout(() => setOldUrlNotice(false), 10_000);
+    return () => clearTimeout(timer);
+  }, [oldUrlNotice]);
   const [cal, setCal] = useState(props.initial);
   const [pen, setPen] = useState<Pen>("o");
   // スタンプペンの中身(spec.md 3.19)。この画面を開いている間だけ覚えておく
@@ -247,6 +258,17 @@ function Editor(props: {
               「{returnTo.title}」の卓に戻る
             </span>
           </Link>
+        )}
+        {oldUrlNotice && (
+          <div class="alert alert-notice old-url-notice" role="status">
+            <p>
+              開いたのは、作り直す前の古い編集URLでした。この端末に保存してある新しいURLで開いています。
+              ブックマークやメモに古いURLを残している場合は、今のURLを保存し直してください。
+            </p>
+            <button type="button" class="old-url-close" aria-label="知らせを閉じる" onClick={() => setOldUrlNotice(false)}>
+              ×
+            </button>
+          </div>
         )}
         <div class="alert alert-notice">
           このページのURLは人に送らないでください。卓に誘うときは、卓ページの「卓URLをコピー」を使います。

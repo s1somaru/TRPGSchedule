@@ -257,6 +257,28 @@ a:focus-visible {
   font-size: 0.9rem;
 }
 
+/* 古いURLで開いたときの知らせ(自分のカレンダー) */
+.old-url-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.old-url-notice p {
+  margin: 0;
+  flex: 1;
+}
+.old-url-close {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
 .error-text {
   color: var(--danger);
   font-size: 0.9rem;
