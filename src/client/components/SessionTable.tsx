@@ -3,7 +3,7 @@
 import { cellStatus, judgeDate, windowFor } from "../../shared/judge";
 import type { SessionResponse } from "../../shared/types";
 import { dateLabel, dayColorClass, holidayName, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
-import { ClockIcon, MemoIcon } from "./Icons";
+import { BusyIcon, ClockIcon, MemoIcon } from "./Icons";
 
 export function SessionTable(props: {
   session: SessionResponse;
@@ -75,15 +75,20 @@ export function SessionTable(props: {
                   // 卓の時間帯と、本人の空いている時間で判定した記号
                   const c = cellStatus(p, date, window);
                   // 未入力は薄い「−」(日ごとの詳しい予定と同じ)。カレンダーが削除された人は空欄のまま
-                  const empty = !c && !p.calendarDeleted;
+                  const empty = (!c || c.s === null) && !p.calendarDeleted;
                   return (
-                    <td key={p.id} class={c ? `c-${c.s}` : empty ? "c-none" : ""}>
-                      {c && STATUS_SYMBOL[c.s]}
+                    <td key={p.id} class={c?.s ? `c-${c.s}` : empty ? "c-none" : ""}>
+                      {c?.s && STATUS_SYMBOL[c.s]}
                       {empty && (
                         <>
                           <span aria-hidden="true">−</span>
                           <span class="visually-hidden">未入力</span>
                         </>
+                      )}
+                      {c?.busy && (
+                        <span class="busy-mark" title="別の卓の予定が入っています">
+                          <BusyIcon size={13} title="別の卓の予定が入っています" />
+                        </span>
                       )}
                       {c?.adjusted && (
                         <span class="clock-mark" title="時間帯が合わないため、記号を変えています">

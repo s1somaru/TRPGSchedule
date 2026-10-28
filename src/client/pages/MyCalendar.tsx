@@ -15,7 +15,7 @@ import { Sheet } from "../components/Sheet";
 import { confirmedSummary, graphemeLength, relativeTime, shortDate, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 import { BackIcon, ClockIcon, EraserIcon, PencilIcon, RedoIcon, StampIcon, UndoIcon } from "../components/Icons";
 import { StampEditor, stampSummary } from "../components/StampEditor";
-import { applyStamp, isEmptyStamp, stampFromEntry, type Stamp } from "../logic";
+import { applyStamp, isEmptyStamp, sessionEventsByDate, stampFromEntry, type Stamp } from "../logic";
 import { emptyHistory, recordChange, redo, undo, type UndoHistory } from "../undo";
 import { Link, navigate, navState } from "../router";
 import { editUrl, storage } from "../storage";
@@ -188,6 +188,8 @@ function Editor(props: {
   const [stamp, setStamp] = useState<Stamp>({});
   const [panel, setPanel] = useState<Panel>({ kind: "none" });
   const [sessions, setSessions] = useState<MySessionsResponse | null>(null);
+  // 参加中の卓の開催日(カレンダーのデータには入れず、印として出すだけ)
+  const events = sessionEventsByDate(sessions);
   const today = jstNow().today;
   // 卓ページの「自分の予定を変える」から来たときの戻り先
   const returnTo = navState().returnTo;
@@ -367,6 +369,7 @@ function Editor(props: {
 
             <CalendarGrid
               availability={save.entries}
+              events={events}
               range={cal.inputRange}
               today={today}
               canPaint={pen !== "memo"}
@@ -403,6 +406,7 @@ function Editor(props: {
           date={panel.date}
           entry={save.entries[panel.date]}
           defaultTime={weeklyFor(panel.date)}
+          events={events[panel.date]}
           recentMemos={recentMemos}
           onSave={(entry: DayEntry) => change(nextOp(), panel.date, entry)}
           onMakeStamp={(entry: DayEntry) => {
@@ -637,6 +641,11 @@ function SessionsSection(props: { sessions: MySessionsResponse | null }) {
             </li>
           ))}
         </ul>
+      )}
+      {active.some((s) => s.confirmedDates.length > 0) && (
+        <p class="muted session-legend">
+          開催日は、カレンダーの日付の数字に <span class="session-legend-num">色</span> が付きます。
+        </p>
       )}
 
       {past.length > 0 && (

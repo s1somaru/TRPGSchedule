@@ -1,8 +1,8 @@
 // 画面で使う計算だけの部分。画面の部品やブラウザの機能に頼らないので、そのままテストできる
 import { addDays } from "../shared/dates";
 import { ID_PATTERNS } from "../shared/ids";
-import type { TimeRange } from "../shared/time";
-import type { Availability, DayEntry, Status } from "../shared/types";
+import type { DayTime, TimeRange } from "../shared/time";
+import type { Availability, DayEntry, MySessionsResponse, Status } from "../shared/types";
 import { weekdayOf } from "./format";
 
 /** 貼り付けられた編集URLから、カレンダーIDと秘密を取り出す。形が違えば null */
@@ -108,7 +108,7 @@ export function setDayPicked(s: PickerState, date: string, picked: boolean): Pic
  */
 export interface Stamp {
   s?: Status;
-  time?: TimeRange | null;
+  time?: DayTime | null;
   memo?: string | null;
 }
 
@@ -136,4 +136,23 @@ export function stampFromEntry(entry: DayEntry): Stamp {
 /** スタンプが何も変えない(全部「変えない」)か */
 export function isEmptyStamp(stamp: Stamp): boolean {
   return stamp.s === undefined && stamp.time === undefined && stamp.memo === undefined;
+}
+
+/** 自分のカレンダーに出す、参加中の卓の開催日(design/busy-and-multi-times.md 2.7) */
+export interface SessionEvent {
+  id: string;
+  title: string;
+  /** その日の時間帯(なければ null) */
+  time: TimeRange | null;
+}
+
+/** 参加中の卓の開催日を、日付ごとにまとめる。カレンダーのデータには入れない(表示だけ) */
+export function sessionEventsByDate(sessions: MySessionsResponse | null): Record<string, SessionEvent[]> {
+  const out: Record<string, SessionEvent[]> = {};
+  for (const s of sessions?.active ?? []) {
+    for (const date of s.confirmedDates) {
+      (out[date] ??= []).push({ id: s.id, title: s.title, time: s.confirmedTimes?.[date] ?? null });
+    }
+  }
+  return out;
 }

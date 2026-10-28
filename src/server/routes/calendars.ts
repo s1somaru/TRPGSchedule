@@ -19,6 +19,7 @@ import * as db from "../db";
 import { ApiError, Errors, readBody } from "../errors";
 import { rateLimit } from "../ratelimit";
 import type { AppEnv } from "../types";
+import type { TimeRange } from "../../shared/time";
 
 export const calendars = new Hono<AppEnv>();
 
@@ -123,6 +124,16 @@ calendars.post("/:id/edit-secret", rateLimit("RL_WRITE"), async (c) => {
   throw Errors.unauthorized();
 });
 
+/** 開催日ごとの時間帯(日ごとの時間帯があればそれ、なければ卓の時間帯) */
+function confirmedTimesOf(
+  row: { time_window: string | null; date_times: string },
+  confirmed: string[],
+): Record<string, TimeRange | null> {
+  const window = row.time_window ? (JSON.parse(row.time_window) as TimeRange) : null;
+  const perDate = JSON.parse(row.date_times) as Record<string, TimeRange>;
+  return Object.fromEntries(confirmed.map((d) => [d, perDate[d] ?? window]));
+}
+
 // 参加中の卓と、これまでのセッション
 calendars.get("/:id/sessions", rateLimit("RL_READ"), async (c) => {
   const { id } = await requireOwner(c, c.req.param("id"));
@@ -135,6 +146,7 @@ calendars.get("/:id/sessions", rateLimit("RL_READ"), async (c) => {
     const dates = JSON.parse(row.candidate_dates) as string[];
     const confirmed = JSON.parse(row.confirmed_dates) as string[];
     const lastConfirmed = confirmed[confirmed.length - 1];
+    const confirmedTimes = confirmedTimesOf(row, confirmed);
     if (lastConfirmed && lastConfirmed < today) {
       // 開催日が全部過ぎた卓は「これまでのセッション」
       past.push({
@@ -142,6 +154,7 @@ calendars.get("/:id/sessions", rateLimit("RL_READ"), async (c) => {
         title: row.title,
         role: row.role,
         confirmedDates: confirmed,
+        confirmedTimes,
         archived: row.archived_at !== null,
       });
     } else if (row.archived_at === null) {
@@ -150,6 +163,7 @@ calendars.get("/:id/sessions", rateLimit("RL_READ"), async (c) => {
         title: row.title,
         role: row.role,
         confirmedDates: confirmed,
+        confirmedTimes,
         firstCandidateDate: dates[0]!,
         lastCandidateDate: dates[dates.length - 1]!,
         // 並び順:次の開催日(なければ最初の候補日)が近い順

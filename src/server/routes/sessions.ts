@@ -86,7 +86,10 @@ sessions.get("/:id", rateLimit("RL_READ"), async (c) => {
   const secret = readBearer(c);
   if (hasHeader && !secret) throw Errors.unauthorized();
 
-  const bundle = await db.loadSession(c.env.DB, id, secret ? await sha256Hex(secret) : undefined);
+  const bundle = await db.loadSession(c.env.DB, id, {
+    viewerSecretHash: secret ? await sha256Hex(secret) : undefined,
+    withBusy: true,
+  });
   if (!bundle) throw Errors.notFound();
   if (secret && !bundle.viewer) throw Errors.unauthorized();
   if (bundle.viewer) touchAccess(c, bundle.viewer.id, bundle.viewer.last_accessed_at);

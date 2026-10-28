@@ -3,7 +3,7 @@
 // 決めたスタンプは、記号のペンと同じようにタップや長押しなぞりで付けられる
 import { useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
-import { rangeLabel, type TimeRange } from "../../shared/time";
+import { dayTimeLabel, rangesOf, type TimeRange } from "../../shared/time";
 import type { Status } from "../../shared/types";
 import { graphemeLength, STATUS_LABEL, STATUS_SYMBOL } from "../format";
 import { isEmptyStamp, type Stamp } from "../logic";
@@ -16,7 +16,7 @@ type Mode = "keep" | "set" | "clear";
 export function stampSummary(stamp: Stamp): string {
   const parts: string[] = [];
   if (stamp.s) parts.push(STATUS_SYMBOL[stamp.s]);
-  if (stamp.time) parts.push(rangeLabel(stamp.time));
+  if (stamp.time) parts.push(dayTimeLabel(stamp.time));
   else if (stamp.time === null) parts.push("時刻を消す");
   if (stamp.memo) parts.push(`メモ:${stamp.memo.replace(/\s+/g, " ")}`);
   else if (stamp.memo === null) parts.push("メモを消す");
@@ -51,7 +51,8 @@ export function StampEditor(props: {
   const [sMode, setSMode] = useState<Mode>(modeOf(props.initial.s));
   const [s, setS] = useState<Status>(props.initial.s ?? "o");
   const [timeMode, setTimeMode] = useState<Mode>(modeOf(props.initial.time));
-  const [time, setTime] = useState<TimeRange | undefined>(props.initial.time ?? undefined);
+  // 複数の時間はまだスタンプで直せない(第2段階)。最初の1つを入れておく
+  const [time, setTime] = useState<TimeRange | undefined>(rangesOf(props.initial.time)[0]);
   const [memoMode, setMemoMode] = useState<Mode>(modeOf(props.initial.memo));
   const [memo, setMemo] = useState(props.initial.memo ?? "");
   const memoLength = graphemeLength(memo.trim());

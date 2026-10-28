@@ -97,6 +97,16 @@ export function ClockIcon(props: IconProps) {
   );
 }
 
+/** 斜線の入ったカレンダー(別の卓の予定が入っていることを示す) */
+export function BusyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="4" y="5" width="16" height="15" rx="2" />
+      <path d="M4 10h16M9 3v4M15 3v4M8 18l8-6" />
+    </Svg>
+  );
+}
+
 /** 戻る(左向きの矢印) */
 export function BackIcon(props: IconProps) {
   return (

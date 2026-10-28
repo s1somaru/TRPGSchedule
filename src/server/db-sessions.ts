@@ -1,8 +1,9 @@
 // 卓まわりの DB 操作(spec.md 5.6 / 7.1 / 8.1)。
 // 「最後のGMか」「30人を超えるか」などの条件は、書き込む SQL 文の中に入れて、
 // 同時に操作されても食い違わないようにする
-import type { TimeRange } from "../shared/time";
-import type { Availability, ParticipantView, Role, SessionResponse } from "../shared/types";
+import { windowFor } from "../shared/judge";
+import { statusWithBusy, type TimeRange } from "../shared/time";
+import type { Availability, BusyCell, ParticipantView, Role, SessionResponse } from "../shared/types";
 
 export interface SessionRow {
   id: string;
@@ -25,9 +26,19 @@ export interface ParticipantRow {
   availability: string | null;
 }
 
+/** 参加者が参加している、ほかの決定済みの卓(design/busy-and-multi-times.md 2.5) */
+export interface BusyRow {
+  participant_id: string;
+  confirmed_dates: string;
+  time_window: string | null;
+  date_times: string;
+}
+
 export interface SessionBundle {
   session: SessionRow;
   participants: ParticipantRow[];
+  /** withBusy で読んだときだけ */
+  busy?: BusyRow[];
   /** 秘密つきで読んだときの、そのカレンダー(見つからなければ null) */
   viewer: { id: string; last_accessed_at: string } | null;
 }
@@ -46,6 +57,21 @@ const SELECT_PARTICIPANTS = `
   WHERE p.session_id = ?1
   ORDER BY (p.role = 'GM') DESC, p.joined_at, p.id`;
 
+/**
+ * 参加者のカレンダーが参加している、ほかの卓のうち、記録になっていなくて、
+ * この卓の候補日のどれかが開催日になっているもの
+ */
+const SELECT_BUSY = `
+  SELECT p.id AS participant_id, s2.confirmed_dates, s2.time_window, s2.date_times
+  FROM participations p
+  JOIN participations p2 ON p2.calendar_id = p.calendar_id AND p2.session_id <> p.session_id
+  JOIN sessions s2 ON s2.id = p2.session_id
+  WHERE p.session_id = ?1 AND p.calendar_id IS NOT NULL
+    AND s2.archived_at IS NULL AND s2.confirmed_dates <> '[]'
+    AND EXISTS (SELECT 1 FROM json_each(s2.confirmed_dates) c
+                WHERE c.value IN (SELECT cand.value FROM sessions s1, json_each(s1.candidate_dates) cand
+                                  WHERE s1.id = ?1))`;
+
 /** その卓が記録になっていないこと(SQL の中で使う。?2 = 卓ID) */
 const NOT_ARCHIVED = `EXISTS (SELECT 1 FROM sessions WHERE id = ?2 AND archived_at IS NULL)`;
 
@@ -55,32 +81,55 @@ const ACTIVE_GM_COUNT = `
    WHERE g.session_id = ?2 AND g.role = 'GM')`;
 
 /**
- * 卓・参加者(と予定)・見ている人のカレンダーを、1往復でまとめて読む(spec.md 4.1)
+ * 卓・参加者(と予定)・見ている人のカレンダーを、1往復でまとめて読む(spec.md 4.1)。
+ * withBusy のときは、ほかの卓の開催日も読む(卓ページの表示用。GET だけで使う)
  */
 export async function loadSession(
   db: D1Database,
   sessionId: string,
-  viewerSecretHash?: string,
+  opts: { viewerSecretHash?: string; withBusy?: boolean } = {},
 ): Promise<SessionBundle | null> {
   const stmts = [
     db.prepare(SELECT_SESSION).bind(sessionId),
     db.prepare(SELECT_PARTICIPANTS).bind(sessionId),
   ];
-  if (viewerSecretHash) {
+  const viewerAt = opts.viewerSecretHash ? stmts.length : -1;
+  if (opts.viewerSecretHash) {
     stmts.push(
       db
         .prepare("SELECT id, last_accessed_at FROM calendars WHERE edit_secret_hash = ?1")
-        .bind(viewerSecretHash),
+        .bind(opts.viewerSecretHash),
     );
   }
-  const [s, p, v] = await db.batch(stmts);
-  const session = (s!.results as SessionRow[])[0];
+  const busyAt = opts.withBusy ? stmts.length : -1;
+  if (opts.withBusy) stmts.push(db.prepare(SELECT_BUSY).bind(sessionId));
+  const results = await db.batch(stmts);
+  const session = (results[0]!.results as SessionRow[])[0];
   if (!session) return null;
   return {
     session,
-    participants: p!.results as ParticipantRow[],
-    viewer: v ? ((v.results as SessionBundle["viewer"][])[0] ?? null) : null,
+    participants: results[1]!.results as ParticipantRow[],
+    viewer: viewerAt >= 0 ? ((results[viewerAt]!.results as SessionBundle["viewer"][])[0] ?? null) : null,
+    ...(busyAt >= 0 ? { busy: results[busyAt]!.results as BusyRow[] } : {}),
   };
+}
+
+/** 参加者ごとに、候補日ごとの「ほかの卓の時間帯」(null は時刻不明)を集める */
+function busyTimesByParticipant(rows: BusyRow[], candidates: Set<string>): Map<string, Map<string, (TimeRange | null)[]>> {
+  const out = new Map<string, Map<string, (TimeRange | null)[]>>();
+  for (const row of rows) {
+    const window = row.time_window ? (JSON.parse(row.time_window) as TimeRange) : null;
+    const perDate = JSON.parse(row.date_times) as Record<string, TimeRange>;
+    for (const date of JSON.parse(row.confirmed_dates) as string[]) {
+      if (!candidates.has(date)) continue;
+      let byDate = out.get(row.participant_id);
+      if (!byDate) out.set(row.participant_id, (byDate = new Map()));
+      const list = byDate.get(date) ?? [];
+      list.push(perDate[date] ?? window);
+      byDate.set(date, list);
+    }
+  }
+  return out;
 }
 
 /** 参加者の表示名。記録になった卓は書き写した名前を優先する */
@@ -96,6 +145,9 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
   const { session } = bundle;
   const archived = session.archived_at !== null;
   const candidateDates = JSON.parse(session.candidate_dates) as string[];
+  const timeWindow = session.time_window ? (JSON.parse(session.time_window) as TimeRange) : null;
+  const dateTimes = JSON.parse(session.date_times) as Record<string, TimeRange>;
+  const busyTimes = !archived && bundle.busy ? busyTimesByParticipant(bundle.busy, new Set(candidateDates)) : undefined;
 
   const participants: ParticipantView[] = bundle.participants.map((row) => {
     const showSchedule = !archived && row.calendar_id !== null && row.availability !== null;
@@ -106,12 +158,20 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
         if (all[date]) availability[date] = all[date];
       }
     }
+    // ほかの卓の開催日と重なっている日だけ、重なりを入れた記号を返す(時刻・卓の名前は返さない)
+    const busy: Record<string, BusyCell> = {};
+    for (const [date, times] of busyTimes?.get(row.id) ?? []) {
+      const e = availability[date];
+      const r = statusWithBusy(e?.s ?? null, e?.time, windowFor({ timeWindow, dateTimes }, date), times);
+      if (r.busy) busy[date] = { s: r.s, adjusted: r.adjusted };
+    }
     return {
       id: row.id,
       role: row.role,
       displayName: displayNameOf(row, archived),
       calendarDeleted: row.calendar_id === null,
       availability,
+      ...(Object.keys(busy).length > 0 ? { busy } : {}),
     };
   });
 
@@ -124,8 +184,8 @@ export function toSessionResponse(bundle: SessionBundle, viewerCalendarId: strin
     title: session.title,
     candidateDates,
     confirmedDates: JSON.parse(session.confirmed_dates) as string[],
-    timeWindow: session.time_window ? (JSON.parse(session.time_window) as TimeRange) : null,
-    dateTimes: JSON.parse(session.date_times) as Record<string, TimeRange>,
+    timeWindow,
+    dateTimes,
     archived,
     participants,
     me: mine ? { participantId: mine.id, role: mine.role } : null,

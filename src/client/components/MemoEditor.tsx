@@ -4,9 +4,11 @@
 // - メモ。「最近使ったメモ」を押すと、そのまま入る
 import { useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
-import type { TimeRange } from "../../shared/time";
+import { rangeLabel, rangesOf, type DayTime, type TimeRange } from "../../shared/time";
 import type { DayEntry, Status } from "../../shared/types";
 import { dateLabel, graphemeLength, holidayName, STATUS_LABEL, STATUS_SYMBOL } from "../format";
+import type { SessionEvent } from "../logic";
+import { Link } from "../router";
 import { Sheet } from "./Sheet";
 import { TimeRangeInput } from "./TimeRangeInput";
 
@@ -15,6 +17,8 @@ export function MemoEditor(props: {
   entry: DayEntry | undefined;
   /** その曜日の「いつもの時間」(時刻がまだない日に、最初から入れておく) */
   defaultTime?: TimeRange;
+  /** この日が開催日になっている、参加中の卓 */
+  events?: SessionEvent[];
   /** 最近使ったメモ */
   recentMemos: string[];
   onSave: (entry: DayEntry) => void;
@@ -23,7 +27,7 @@ export function MemoEditor(props: {
   onClose: () => void;
 }) {
   const [status, setStatus] = useState<Status | null>(props.entry?.s ?? null);
-  const [time, setTime] = useState<TimeRange | undefined>(props.entry?.time ?? (props.entry ? undefined : props.defaultTime));
+  const [time, setTime] = useState<DayTime | undefined>(props.entry?.time ?? (props.entry ? undefined : props.defaultTime));
   const [memo, setMemo] = useState(props.entry?.memo ?? "");
   const length = graphemeLength(memo.trim());
   const tooLong = length > LIMITS.memo;
@@ -65,6 +69,12 @@ export function MemoEditor(props: {
     >
       <div class="stack">
         {holidayName(props.date) && <p class="holiday-name">{holidayName(props.date)}</p>}
+        {props.events?.map((ev) => (
+          <p class="session-event" key={ev.id}>
+            この日は<Link href={`/s/${ev.id}`}>「{ev.title}」</Link>の開催日です
+            {ev.time ? `(${rangeLabel(ev.time)})` : ""}
+          </p>
+        ))}
         <div>
           <p class="muted">この日の予定</p>
           <div class="status-choice">
@@ -90,7 +100,22 @@ export function MemoEditor(props: {
         {canHaveTime && (
           <div>
             <p class="muted">空いている時間(任意。卓の時間帯と照らして、自動で判定します)</p>
-            <TimeRangeInput value={time} onChange={setTime} label="空いている時間" />
+            {Array.isArray(time) ? (
+              // 1日に複数の空いている時間がある日。行ごとに直せる(空にした行は消える)
+              rangesOf(time).map((r, i, all) => (
+                <TimeRangeInput
+                  key={i}
+                  value={r}
+                  onChange={(next) => {
+                    const rest = all.map((x, j) => (j === i ? next : x)).filter((x): x is TimeRange => x !== undefined);
+                    setTime(rest.length > 1 ? rest : rest[0]);
+                  }}
+                  label={`空いている時間 ${i + 1}`}
+                />
+              ))
+            ) : (
+              <TimeRangeInput value={time} onChange={setTime} label="空いている時間" />
+            )}
           </div>
         )}
 

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { inputRange, jstNow } from "../../shared/dates";
 import { cellStatus, hasActiveGm, judgeDate, windowFor } from "../../shared/judge";
-import { rangeLabel, type TimeRange } from "../../shared/time";
+import { dayTimeLabel, rangeLabel, type TimeRange } from "../../shared/time";
 import { TimeRangeInput } from "../components/TimeRangeInput";
 import { LIMITS } from "../../shared/limits";
 import type { Role, SessionResponse } from "../../shared/types";
@@ -605,6 +605,10 @@ function DaySheet(props: {
         <p class="muted">
           {note}(◯{sum.o} △{sum.t} ×{sum.x})
         </p>
+        {confirmed && props.session.participants.some((p) => cellStatus(p, props.date, window)?.busy) && (
+          // 同じ人のほかの卓と、開催日が重なっている(二重に決めた場合も含む)
+          <p class="busy-note">別の卓の予定と重なっている人がいます。開催日を見直してください。</p>
+        )}
         <ul class="list">
           {props.session.participants.map((p) => {
             const e = p.availability[props.date];
@@ -616,15 +620,20 @@ function DaySheet(props: {
                     {p.role === "GM" && <span class="tag tag-gm">GM</span>}
                     {p.displayName}
                     {p.calendarDeleted && <span class="muted">(削除済み)</span>}
-                    {e?.time && <span class="muted day-memo">空いている時間:{rangeLabel(e.time)}</span>}
-                    {c?.adjusted && (
+                    {e?.time && <span class="muted day-memo">空いている時間:{dayTimeLabel(e.time)}</span>}
+                    {c?.busy && <span class="muted day-memo busy-text">別の卓の予定が入っています</span>}
+                    {e && c?.s && c.s !== e.s && (
                       <span class="muted day-memo">
-                        本人は {STATUS_SYMBOL[e!.s]}。時間帯が{c.s === "x" ? "合わない" : "一部だけ合う"}ため {STATUS_SYMBOL[c.s]} にしています
+                        本人は {STATUS_SYMBOL[e.s]}。
+                        {c.busy
+                          ? `${c.adjusted ? "時間帯と、" : ""}別の卓の予定と重なるため`
+                          : `時間帯が${c.s === "x" ? "合わない" : "一部だけ合う"}ため`}{" "}
+                        {STATUS_SYMBOL[c.s]} にしています
                       </span>
                     )}
                     {e?.memo && <span class="memo-view muted day-memo">{e.memo}</span>}
                   </span>
-                  <span class={`day-sym ${c ? `c-${c.s}` : ""}`}>{c ? STATUS_SYMBOL[c.s] : "−"}</span>
+                  <span class={`day-sym ${c?.s ? `c-${c.s}` : ""}`}>{c?.s ? STATUS_SYMBOL[c.s] : "−"}</span>
                 </div>
               </li>
             );

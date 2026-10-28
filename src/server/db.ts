@@ -197,6 +197,8 @@ export interface MySessionRow {
   title: string;
   candidate_dates: string;
   confirmed_dates: string;
+  time_window: string | null;
+  date_times: string;
   archived_at: string | null;
   role: "GM" | "PL";
 }
@@ -204,7 +206,7 @@ export interface MySessionRow {
 export async function listMySessions(db: D1Database, calendarId: string): Promise<MySessionRow[]> {
   const { results } = await db
     .prepare(
-      `SELECT s.id, s.title, s.candidate_dates, s.confirmed_dates, s.archived_at, p.role
+      `SELECT s.id, s.title, s.candidate_dates, s.confirmed_dates, s.time_window, s.date_times, s.archived_at, p.role
        FROM participations p JOIN sessions s ON s.id = p.session_id
        WHERE p.calendar_id = ?1`,
     )

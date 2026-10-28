@@ -1736,6 +1736,47 @@ textarea.tall {
   white-space: nowrap;
 }
 
+/* 参加中の卓の開催日(自分のカレンダー。表示だけ) */
+.day.has-session .num {
+  top: 1px;
+  left: 2px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.session-legend-num {
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.session-event {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+}
+
+/* 別の卓の予定と重なっている印(卓ページ) */
+.busy-mark {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  display: inline-flex;
+  color: var(--muted);
+}
+
+.busy-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
 /* 時間帯のせいで記号が変わった印 */
 .clock-mark {
   position: absolute;

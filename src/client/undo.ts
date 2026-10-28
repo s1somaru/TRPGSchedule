@@ -5,6 +5,7 @@
 // 手順には、変えた日ごとに「変える前」と「変えた後」を持つ。
 // 元に戻すと「変える前」を、やり直すと「変えた後」を、いつもの自動保存に渡す。
 // 覚えるのはこの画面を開いている間だけ(閉じたら消える)。
+import { sameDayTime } from "../shared/time";
 import type { DayEntry } from "../shared/types";
 
 /** 1日分の変更。null は「入っていない」 */
@@ -37,8 +38,7 @@ function sameEntry(a: DayEntry | null, b: DayEntry | null): boolean {
   return (
     a.s === b.s &&
     (a.memo ?? "") === (b.memo ?? "") &&
-    a.time?.from === b.time?.from &&
-    a.time?.to === b.time?.to
+    sameDayTime(a.time, b.time)
   );
 }
 

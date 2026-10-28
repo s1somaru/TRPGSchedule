@@ -1,4 +1,4 @@
-import type { TimeRange } from "./time";
+import type { DayTime, TimeRange } from "./time";
 
 // API でやりとりするデータの形(spec.md 5章)。サーバーと画面で共有する
 
@@ -9,8 +9,8 @@ export type Status = "o" | "t" | "x";
 export interface DayEntry {
   s: Status;
   memo?: string;
-  /** 空いている時間(任意)。× の日には付けない(spec.md 3.18) */
-  time?: TimeRange;
+  /** 空いている時間(任意)。× の日には付けない(spec.md 3.18)。読むときは rangesOf を通す */
+  time?: DayTime;
 }
 
 /** 曜日ごとの「いつもの時間」。キーは曜日("0" = 日曜 〜 "6" = 土曜) */
@@ -42,6 +42,8 @@ export interface MySessionSummary {
   confirmedDates: string[];
   firstCandidateDate: string;
   lastCandidateDate: string;
+  /** 開催日ごとの時間帯(なければ null)。本人だけが見る */
+  confirmedTimes: Record<string, TimeRange | null>;
 }
 
 export interface PastSessionSummary {
@@ -50,6 +52,8 @@ export interface PastSessionSummary {
   role: "GM" | "PL";
   /** 開催日(日付順・すべて過ぎた日) */
   confirmedDates: string[];
+  /** 開催日ごとの時間帯(なければ null) */
+  confirmedTimes: Record<string, TimeRange | null>;
   archived: boolean;
 }
 
@@ -73,6 +77,17 @@ export interface ParticipantView {
   calendarDeleted: boolean;
   /** 候補日に当たる日だけ。記録・削除済みカレンダーは空 */
   availability: Availability;
+  /**
+   * ほかの卓の開催日と重なっている日だけ(design/busy-and-multi-times.md 2.4)。
+   * 卓の名前・時刻は入れない。重なりを入れた後の記号だけ
+   */
+  busy?: Record<string, BusyCell>;
+}
+
+/** ほかの卓の開催日と重なっている日の記号。s が null は未入力。adjusted は本人の時刻のせいで変わったとき */
+export interface BusyCell {
+  s: Status | null;
+  adjusted: boolean;
 }
 
 export interface SessionResponse {

@@ -3,13 +3,15 @@
 // (すぐなぞった場合は、ふつうのスクロールとして扱う)
 import { addDays } from "../../shared/dates";
 import type { Availability } from "../../shared/types";
-import { monthsBetween } from "../logic";
-import { rangeLabel, shortRangeLabel } from "../../shared/time";
+import { monthsBetween, type SessionEvent } from "../logic";
+import { dayTimeLabel, shortDayTimeLabel } from "../../shared/time";
 import { useLongPressPaint } from "../useLongPressPaint";
 import { dateLabel, dayColorClass, holidayName, STATUS_LABEL, STATUS_SYMBOL, weekdayLabel, weekdayOf } from "../format";
 
 interface Props {
   availability: Availability;
+  /** 参加中の卓の開催日(表示だけ。マスの操作は変わらない) */
+  events?: Record<string, SessionEvent[]>;
   range: { from: string; to: string };
   today: string;
   /** 長押しでなぞる操作を使えるか(メモのペンのときは使えない) */
@@ -62,8 +64,11 @@ export function CalendarGrid(props: Props) {
                   entry ? `s-${entry.s}` : "",
                   dayColorClass(date),
                   date === props.today ? "today" : "",
+                  // 参加中の卓の開催日は、日付の数字に色を付ける(表示だけ)
+                  props.events?.[date]?.length ? "has-session" : "",
                 ].join(" ");
-                const label = `${dateLabel(date)} ${entry ? STATUS_LABEL[entry.s] : "未入力"}${entry?.time ? `、${rangeLabel(entry.time)}` : ""}${entry?.memo ? "、メモあり" : ""}`;
+                const events = props.events?.[date] ?? [];
+                const label = `${dateLabel(date)} ${entry ? STATUS_LABEL[entry.s] : "未入力"}${entry?.time ? `、${dayTimeLabel(entry.time)}` : ""}${entry?.memo ? "、メモあり" : ""}${events.map((ev) => `、「${ev.title}」の開催日`).join("")}`;
                 return (
                   <button
                     type="button"
@@ -84,7 +89,7 @@ export function CalendarGrid(props: Props) {
                     </span>
                     {entry?.time && (
                       <span class="cell-time" aria-hidden="true">
-                        {shortRangeLabel(entry.time)}
+                        {shortDayTimeLabel(entry.time)}
                       </span>
                     )}
                     {entry?.memo && (

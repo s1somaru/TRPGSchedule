@@ -32,17 +32,26 @@ export function windowFor(session: Pick<SessionResponse, "timeWindow" | "dateTim
   return session.dateTimes[date] ?? session.timeWindow ?? undefined;
 }
 
+/** その人のその日の、この卓での記号 */
+export interface Cell {
+  /** null は未入力(ほかの卓の開催日とだけ重なっている) */
+  s: Status | null;
+  /** 本人の時刻のせいで記号が変わった */
+  adjusted: boolean;
+  /** ほかの卓の開催日と重なっている */
+  busy: boolean;
+}
+
 /**
  * ある人のその日の、この卓での記号。時刻と卓の時間帯で判定する(spec.md 3.18)。
- * 未入力なら undefined。adjusted は時刻のせいで記号が変わったとき true
+ * ほかの卓の開催日と重なっていれば、サーバーが判定した結果を使う。
+ * 未入力で重なりもなければ undefined
  */
-export function cellStatus(
-  p: ParticipantView,
-  date: string,
-  window?: TimeRange,
-): { s: Status; adjusted: boolean } | undefined {
+export function cellStatus(p: ParticipantView, date: string, window?: TimeRange): Cell | undefined {
+  const b = p.busy?.[date];
+  if (b) return { s: b.s, adjusted: b.adjusted, busy: true };
   const e = p.availability[date];
-  return e ? statusForWindow(e.s, e.time, window) : undefined;
+  return e ? { ...statusForWindow(e.s, e.time, window), busy: false } : undefined;
 }
 
 /** 1日分の判定と集計。window は卓の時間帯(あれば時刻で判定した記号で数える) */
