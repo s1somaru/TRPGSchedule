@@ -3,12 +3,12 @@
 // 決めたスタンプは、記号のペンと同じようにタップや長押しなぞりで付けられる
 import { useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
-import { dayTimeLabel, rangesOf, type TimeRange } from "../../shared/time";
+import { dayTimeLabel, normalizeDayTime, type DayTime } from "../../shared/time";
 import type { Status } from "../../shared/types";
 import { graphemeLength, STATUS_LABEL, STATUS_SYMBOL } from "../format";
 import { isEmptyStamp, type Stamp } from "../logic";
 import { Sheet } from "./Sheet";
-import { TimeRangeInput } from "./TimeRangeInput";
+import { DayTimeInput } from "./DayTimeInput";
 
 type Mode = "keep" | "set" | "clear";
 
@@ -51,15 +51,14 @@ export function StampEditor(props: {
   const [sMode, setSMode] = useState<Mode>(modeOf(props.initial.s));
   const [s, setS] = useState<Status>(props.initial.s ?? "o");
   const [timeMode, setTimeMode] = useState<Mode>(modeOf(props.initial.time));
-  // 複数の時間はまだスタンプで直せない(第2段階)。最初の1つを入れておく
-  const [time, setTime] = useState<TimeRange | undefined>(rangesOf(props.initial.time)[0]);
+  const [time, setTime] = useState<DayTime | undefined>(props.initial.time ?? undefined);
   const [memoMode, setMemoMode] = useState<Mode>(modeOf(props.initial.memo));
   const [memo, setMemo] = useState(props.initial.memo ?? "");
   const memoLength = graphemeLength(memo.trim());
 
   const stamp: Stamp = {
     ...(sMode === "set" ? { s } : {}),
-    ...(timeMode === "set" && time ? { time } : timeMode === "clear" ? { time: null } : {}),
+    ...(timeMode === "set" && time ? { time: normalizeDayTime(time) } : timeMode === "clear" ? { time: null } : {}),
     ...(memoMode === "set" && memo.trim() ? { memo: memo.trim() } : memoMode === "clear" ? { memo: null } : {}),
   };
   const empty = isEmptyStamp(stamp);
@@ -111,7 +110,7 @@ export function StampEditor(props: {
             }}
             setLabel="これにする"
           />
-          {timeMode === "set" && <TimeRangeInput value={time} onChange={setTime} allowEmpty={false} label="スタンプの時間" />}
+          {timeMode === "set" && <DayTimeInput value={time} onChange={setTime} label="スタンプの時間" />}
           {timeMode === "set" && !time && <p class="error-text">始まりの時刻を選んでください</p>}
           {sMode === "set" && s === "x" && timeMode === "set" && <p class="muted">× の日には時刻は付きません。</p>}
         </section>

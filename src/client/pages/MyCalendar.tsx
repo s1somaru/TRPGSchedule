@@ -4,9 +4,9 @@ import { jstNow } from "../../shared/dates";
 import { ID_PATTERNS, newSecret } from "../../shared/ids";
 import { LIMITS } from "../../shared/limits";
 import type { JSX } from "preact";
-import { dayTimeLabel, rangesOf, type DayTime } from "../../shared/time";
+import { dayTimeLabel, normalizeDayTime, type DayTime } from "../../shared/time";
 import type { CalendarResponse, DayEntry, MySessionsResponse, Status, WeeklyTimes } from "../../shared/types";
-import { TimeRangeInput } from "../components/TimeRangeInput";
+import { DayTimeInput } from "../components/DayTimeInput";
 import { api, ApiClientError } from "../api";
 import { CalendarGrid } from "../components/CalendarGrid";
 import { MemoEditor } from "../components/MemoEditor";
@@ -403,6 +403,7 @@ function Editor(props: {
 
       {panel.kind === "memo" && (
         <MemoEditor
+          key={panel.date}
           date={panel.date}
           entry={save.entries[panel.date]}
           defaultTime={weeklyFor(panel.date)}
@@ -864,7 +865,12 @@ function WeeklySheet(props: {
     setBusy(true);
     setError(null);
     try {
-      await props.onSave(value);
+      const normalized: WeeklyTimes = {};
+      for (const k of WEEK_KEYS) {
+        const t = value[k];
+        if (t) normalized[k] = normalizeDayTime(t);
+      }
+      await props.onSave(normalized);
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存できませんでした");
       setBusy(false);
@@ -893,8 +899,8 @@ function WeeklySheet(props: {
         {WEEK_KEYS.map((k) => (
           <div class="weekly-row" key={k}>
             <span class={`weekly-day ${k === "0" ? "sun" : k === "6" ? "sat" : ""}`}>{weekdayLabel(Number(k))}</span>
-            <TimeRangeInput
-              value={rangesOf(value[k])[0]}
+            <DayTimeInput
+              value={value[k]}
               label={`${weekdayLabel(Number(k))}曜のいつもの時間`}
               onChange={(r) => {
                 const next = { ...value };

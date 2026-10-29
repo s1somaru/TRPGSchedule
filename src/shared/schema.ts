@@ -41,13 +41,10 @@ export const TimeRangeSchema = v.pipe(
   v.transform(({ from, to }) => (to ? { from, to } : { from })),
 );
 
-/** 本人の空いている時間の数の上限(1日あたり) */
-export const MAX_DAY_RANGES = 3;
-
 const DayTimeArraySchema = v.pipe(
   v.array(TimeRangeSchema),
   v.minLength(1, "空いている時間を1つ以上選んでください"),
-  v.maxLength(MAX_DAY_RANGES, `空いている時間は1日に${MAX_DAY_RANGES}つまでです`),
+  v.maxLength(LIMITS.dayTimeRanges, `空いている時間は1日に${LIMITS.dayTimeRanges}つまでです`),
   v.transform((ranges: TimeRange[]): DayTime => normalizeDayTime(ranges)),
 );
 /**

@@ -4,13 +4,13 @@
 // - メモ。「最近使ったメモ」を押すと、そのまま入る
 import { useState } from "preact/hooks";
 import { LIMITS } from "../../shared/limits";
-import { rangeLabel, rangesOf, type DayTime, type TimeRange } from "../../shared/time";
+import { normalizeDayTime, rangeLabel, type DayTime } from "../../shared/time";
 import type { DayEntry, Status } from "../../shared/types";
 import { dateLabel, graphemeLength, holidayName, STATUS_LABEL, STATUS_SYMBOL } from "../format";
 import type { SessionEvent } from "../logic";
 import { Link } from "../router";
 import { Sheet } from "./Sheet";
-import { TimeRangeInput } from "./TimeRangeInput";
+import { DayTimeInput } from "./DayTimeInput";
 
 export function MemoEditor(props: {
   date: string;
@@ -36,7 +36,7 @@ export function MemoEditor(props: {
   const current = (): DayEntry | null => {
     if (!status || tooLong) return null;
     const text = memo.trim();
-    return { s: status, ...(text ? { memo: text } : {}), ...(time && canHaveTime ? { time } : {}) };
+    return { s: status, ...(text ? { memo: text } : {}), ...(time && canHaveTime ? { time: normalizeDayTime(time) } : {}) };
   };
   const save = () => {
     const entry = current();
@@ -87,8 +87,10 @@ export function MemoEditor(props: {
                 aria-label={STATUS_LABEL[s]}
                 onClick={() => {
                   setStatus(s);
-                  // 初めて記号を選ぶときは、その曜日のいつもの時間を入れておく
-                  if ((s === "o" || s === "t") && !time && !props.entry && props.defaultTime) setTime(props.defaultTime);
+                  // 初めて記号を選ぶときは、その曜日のいつもの時間を入れておく。
+                  // 入力欄がもう出ているとき(◯ と △ の切り替え)は入れない(見えない時刻が入るため)
+                  if ((s === "o" || s === "t") && !canHaveTime && !time && !props.entry && props.defaultTime)
+                    setTime(props.defaultTime);
                 }}
               >
                 {STATUS_SYMBOL[s]}
@@ -100,22 +102,7 @@ export function MemoEditor(props: {
         {canHaveTime && (
           <div>
             <p class="muted">空いている時間(任意。卓の時間帯と照らして、自動で判定します)</p>
-            {Array.isArray(time) ? (
-              // 1日に複数の空いている時間がある日。行ごとに直せる(空にした行は消える)
-              rangesOf(time).map((r, i, all) => (
-                <TimeRangeInput
-                  key={i}
-                  value={r}
-                  onChange={(next) => {
-                    const rest = all.map((x, j) => (j === i ? next : x)).filter((x): x is TimeRange => x !== undefined);
-                    setTime(rest.length > 1 ? rest : rest[0]);
-                  }}
-                  label={`空いている時間 ${i + 1}`}
-                />
-              ))
-            ) : (
-              <TimeRangeInput value={time} onChange={setTime} label="空いている時間" />
-            )}
+            <DayTimeInput value={time} onChange={setTime} label="空いている時間" />
           </div>
         )}
 

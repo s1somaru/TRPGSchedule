@@ -6,6 +6,8 @@ export const LIMITS = {
   candidateDates: 60,
   participants: 30,
   availabilityPerRequest: 200,
+  /** 1日に入れられる本人の空いている時間の数 */
+  dayTimeRanges: 3,
 } as const;
 
 /**

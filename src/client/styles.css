@@ -1831,13 +1831,15 @@ textarea.tall {
 /* いつもの時間 */
 .weekly-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
 }
 
 .weekly-day {
   flex: none;
   width: 2em;
+  /* 1行目の欄の高さにそろえる */
+  line-height: 44px;
   font-weight: 700;
   text-align: center;
 }
@@ -2134,4 +2136,43 @@ html::before {
 h1.title-long {
   font-size: 1.25rem;
   line-height: 1.45;
+}
+
+/* 1日に複数の空いている時間(design/busy-and-multi-times.md 3.4) */
+.day-time {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.day-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.day-time-row .time-range {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-time-remove {
+  flex: none;
+}
+
+.day-time-add {
+  align-self: flex-start;
+}
+
+.day-time-note {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* 2つ目からの時間の行は、前の行と区切る(スマホでは1行が2段になるため) */
+.day-time-row + .day-time-row {
+  border-top: 1px dashed var(--line);
+  padding-top: 6px;
 }
