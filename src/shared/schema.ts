@@ -4,7 +4,7 @@ import { isValidDate } from "./dates";
 import { ID_PATTERNS } from "./ids";
 import { FEEDBACK_LIMITS, LIMITS, RAW_LIMITS } from "./limits";
 import { cleanMultiLine, cleanSingleLine } from "./text";
-import { isValidRange } from "./time";
+import { isValidRange, normalizeDayTime, type DayTime, type TimeRange } from "./time";
 
 export { LIMITS };
 
@@ -41,9 +41,25 @@ export const TimeRangeSchema = v.pipe(
   v.transform(({ from, to }) => (to ? { from, to } : { from })),
 );
 
+/** 本人の空いている時間の数の上限(1日あたり) */
+export const MAX_DAY_RANGES = 3;
+
+const DayTimeArraySchema = v.pipe(
+  v.array(TimeRangeSchema),
+  v.minLength(1, "空いている時間を1つ以上選んでください"),
+  v.maxLength(MAX_DAY_RANGES, `空いている時間は1日に${MAX_DAY_RANGES}つまでです`),
+  v.transform((ranges: TimeRange[]): DayTime => normalizeDayTime(ranges)),
+);
+/**
+ * 本人の空いている時間(design/busy-and-multi-times.md 3.1)。
+ * 時間帯1つ(今までの形のまま通る)、または1〜3個の配列(並べてまとめた形で保存する)
+ * union だと時刻の誤り(422)が形の誤り(400)にまとめられるので、送られた形で分ける
+ */
+export const DayTimeSchema = v.lazy((input) => (Array.isArray(input) ? DayTimeArraySchema : TimeRangeSchema));
+
 /** 1日分の予定。メモが空のときは memo を付けない。× の日には時刻を付けない */
 export const DayEntrySchema = v.pipe(
-  v.strictObject({ s: StatusSchema, memo: v.optional(Memo), time: v.optional(TimeRangeSchema) }),
+  v.strictObject({ s: StatusSchema, memo: v.optional(Memo), time: v.optional(DayTimeSchema) }),
   v.transform(({ s, memo, time }) => ({
     s,
     ...(memo ? { memo } : {}),
@@ -54,7 +70,7 @@ export const DayEntrySchema = v.pipe(
 /** 曜日ごとの「いつもの時間」。毎回まるごと送る(ない曜日は「なし」) */
 export const WeeklyTimesSchema = v.record(
   v.picklist(["0", "1", "2", "3", "4", "5", "6"], "曜日の指定が正しくありません"),
-  TimeRangeSchema,
+  DayTimeSchema,
 );
 
 /** 予定の更新。null は「未入力に戻す」 */

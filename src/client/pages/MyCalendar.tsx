@@ -4,7 +4,7 @@ import { jstNow } from "../../shared/dates";
 import { ID_PATTERNS, newSecret } from "../../shared/ids";
 import { LIMITS } from "../../shared/limits";
 import type { JSX } from "preact";
-import { rangeLabel, type TimeRange } from "../../shared/time";
+import { dayTimeLabel, rangesOf, type DayTime } from "../../shared/time";
 import type { CalendarResponse, DayEntry, MySessionsResponse, Status, WeeklyTimes } from "../../shared/types";
 import { TimeRangeInput } from "../components/TimeRangeInput";
 import { api, ApiClientError } from "../api";
@@ -228,7 +228,7 @@ function Editor(props: {
   const onRedo = () => replay(redo(undoHistory));
 
   /** その日の曜日の「いつもの時間」 */
-  const weeklyFor = (date: string): TimeRange | undefined =>
+  const weeklyFor = (date: string): DayTime | undefined =>
     cal.weeklyTimes[String(weekdayOf(date)) as keyof WeeklyTimes];
 
   const applyPen = (date: string, op: number) => {
@@ -841,7 +841,7 @@ function WeeklySummary(props: { weeklyTimes: WeeklyTimes }) {
           <li key={k}>
             <div class="row">
               <span>{weekdayLabel(Number(k))}曜</span>
-              <span class="sub">{rangeLabel(props.weeklyTimes[k]!)}</span>
+              <span class="sub">{dayTimeLabel(props.weeklyTimes[k]!)}</span>
             </div>
           </li>
         ))}
@@ -894,7 +894,7 @@ function WeeklySheet(props: {
           <div class="weekly-row" key={k}>
             <span class={`weekly-day ${k === "0" ? "sun" : k === "6" ? "sat" : ""}`}>{weekdayLabel(Number(k))}</span>
             <TimeRangeInput
-              value={value[k]}
+              value={rangesOf(value[k])[0]}
               label={`${weekdayLabel(Number(k))}曜のいつもの時間`}
               onChange={(r) => {
                 const next = { ...value };

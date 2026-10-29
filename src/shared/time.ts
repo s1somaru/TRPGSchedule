@@ -188,6 +188,28 @@ export function statusForWindow(
   return judgeSpans(status, union(ranges.map(spanOf)), spanOf(window));
 }
 
+/**
+ * 本人の空いている時間を、保存する形にそろえる(design/busy-and-multi-times.md 3.1)。
+ * 始まり順に並べ、重なる・接する区間をまとめる。1つになればオブジェクト、2つ以上は配列。
+ * 終わりなしの区間を含むまとまりは、終わりなし({from})のまま。to: "30:00" は足さない。
+ * 区間は検査済みのものを渡すこと。
+ */
+export function normalizeDayTime(time: DayTime): DayTime {
+  const sorted = rangesOf(time)
+    .map((r) => ({ a: toMinutes(r.from), b: spanOf(r)[1], open: r.to === undefined, from: r.from }))
+    .sort((p, q) => p.a - q.a);
+  const out: typeof sorted = [];
+  for (const r of sorted) {
+    const last = out[out.length - 1];
+    if (last && r.a <= last.b) {
+      last.b = Math.max(last.b, r.b);
+      last.open = last.open || r.open;
+    } else out.push({ ...r });
+  }
+  const ranges: TimeRange[] = out.map((r) => (r.open ? { from: r.from } : { from: r.from, to: fromMinutes(r.b) }));
+  return ranges.length === 1 ? ranges[0]! : ranges;
+}
+
 /** 分を "HH:MM" にする */
 function fromMinutes(min: number): string {
   return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;

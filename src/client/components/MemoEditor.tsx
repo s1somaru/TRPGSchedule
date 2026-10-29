@@ -16,7 +16,7 @@ export function MemoEditor(props: {
   date: string;
   entry: DayEntry | undefined;
   /** その曜日の「いつもの時間」(時刻がまだない日に、最初から入れておく) */
-  defaultTime?: TimeRange;
+  defaultTime?: DayTime;
   /** この日が開催日になっている、参加中の卓 */
   events?: SessionEvent[];
   /** 最近使ったメモ */

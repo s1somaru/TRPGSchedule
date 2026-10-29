@@ -14,7 +14,7 @@ export interface DayEntry {
 }
 
 /** 曜日ごとの「いつもの時間」。キーは曜日("0" = 日曜 〜 "6" = 土曜) */
-export type WeeklyTimes = Partial<Record<"0" | "1" | "2" | "3" | "4" | "5" | "6", TimeRange>>;
+export type WeeklyTimes = Partial<Record<"0" | "1" | "2" | "3" | "4" | "5" | "6", DayTime>>;
 
 /** 日付ごとの予定。未入力の日は含めない */
 export type Availability = Record<string, DayEntry>;
